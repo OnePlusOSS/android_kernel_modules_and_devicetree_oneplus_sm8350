@@ -3255,7 +3255,7 @@ module_i2c_driver(rt9471_i2c_driver);
 
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("ShuFanLee <shufan_lee@richtek.com>");
+MODULE_AUTHOR("ShuFanLee");
 MODULE_DESCRIPTION("RT9471 Charger Driver");
 MODULE_VERSION(RT9471_DRV_VERSION);
 /*

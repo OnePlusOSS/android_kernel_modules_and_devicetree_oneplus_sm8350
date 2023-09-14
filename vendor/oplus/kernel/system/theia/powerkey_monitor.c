@@ -21,6 +21,7 @@ static const int stage_total_size = stage_brief_size*flow_size;
 static struct task_struct *block_thread = NULL;
 static bool timer_started = false;
 static int systemserver_pid = -1;
+static bool g_system_boot_completed = false;
 
 int get_systemserver_pid(void)
 {
@@ -106,12 +107,22 @@ static bool handle_param_setup(char *key, char *value)
         int s_pid;
         if (sscanf(value, "%d", &s_pid) == 1) {
             systemserver_pid = s_pid;
-        }
+	}
+	} else if (!strcmp(key, "boot-completed")) {
+		int is_boot_completed;
+		if (sscanf(value, "%d", &is_boot_completed) == 1) {
+			g_system_boot_completed = !!is_boot_completed;
+		}
     } else {
         ret = false;
     }
 
     return ret;
+}
+
+bool is_system_boot_completed(void)
+{
+	return g_system_boot_completed;
 }
 
 /*

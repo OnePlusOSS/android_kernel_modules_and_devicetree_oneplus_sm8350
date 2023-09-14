@@ -7444,6 +7444,14 @@ SND_SOC_DAILINK_DEFS(tfa98xx_quin_mi2s_rx,
 	DAILINK_COMP_ARRAY(COMP_CODEC("tfa98xx.0-0034", "tfa98xx-aif-0-34"),),
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("msm-pcm-routing")));
 
+#ifdef CONFIG_SND_SOC_AW882XX
+extern void afe_set_spk_type(int enable);
+SND_SOC_DAILINK_DEFS(aw882xx_quin_mi2s_rx,
+	DAILINK_COMP_ARRAY(COMP_CPU("msm-dai-q6-mi2s.4")),
+	DAILINK_COMP_ARRAY(COMP_CODEC("aw882xx_smartpa.0-0034", "aw882xx-aif-0-34"),),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("msm-pcm-routing")));
+#endif
+
 static struct snd_soc_dai_link tfa98xx_mi2s_be_dai_links[] = {
 	{
 		.name = LPASS_BE_PRI_MI2S_RX,
@@ -7520,6 +7528,23 @@ static struct snd_soc_dai_link tfa98xx_mi2s_be_dai_links[] = {
 	},
 };
 
+#ifdef CONFIG_SND_SOC_AW882XX
+static struct snd_soc_dai_link aw882xx_mono_mi2s_be_dai_links[] = {
+	{
+		.name = LPASS_BE_QUIN_MI2S_RX,
+		.stream_name = "Quinary MI2S Playback",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.id = MSM_BACKEND_DAI_QUINARY_MI2S_RX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm_mi2s_be_ops,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		SND_SOC_DAILINK_REG(aw882xx_quin_mi2s_rx),
+	},
+};
+#endif
+
 void exchange_mi2s_dai_config(const char *product_name, int mi2s_id)
 {
 	int i = 0;
@@ -7563,6 +7588,16 @@ void exchange_mi2s_dai_config(const char *product_name, int mi2s_id)
 				pr_info("%s: use nxp stereo dailink replace\n", __func__);
 				memcpy(temp_link, &tfa98xx_mi2s_be_dai_links[mi2s_id],
 						sizeof(tfa98xx_mi2s_be_dai_links[mi2s_id]));
+			}
+			#endif
+			#ifdef CONFIG_SND_SOC_AW882XX
+			if (!strcmp(product_name, "aw882xx_mono")) {
+				pr_info("%s: use aw882xx mono dailink replace\n", __func__);
+				memcpy(temp_link, &aw882xx_mono_mi2s_be_dai_links[0],
+						sizeof(aw882xx_mono_mi2s_be_dai_links[0]));
+				afe_set_spk_type(true);
+			} else {
+				afe_set_spk_type(false);
 			}
 			#endif
 		}

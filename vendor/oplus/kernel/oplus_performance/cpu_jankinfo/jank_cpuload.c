@@ -89,7 +89,11 @@ static __maybe_unused void get_cgroup_delta(u64 now,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
 static inline u64 scale_exec_time(u64 delta, struct rq *rq)
 {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
+	return (delta * rq->task_exec_scale) >> 10;
+#else
 	return (delta * rq->wrq.task_exec_scale) >> 10;
+#endif
 }
 #else
 static inline u64 scale_exec_time(u64 delta, struct rq *rq)

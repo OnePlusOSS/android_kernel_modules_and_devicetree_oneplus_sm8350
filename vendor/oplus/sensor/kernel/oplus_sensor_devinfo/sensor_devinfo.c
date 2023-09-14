@@ -1351,7 +1351,7 @@ int get_msensor_parameter(int num)
 		para_num = fdt32_to_cpu(*data_addr);
 		DEVINFO_LOG(" %s match project start, para_num = %d\n", msensor, para_num);
 
-		sprintf(project, "%d", get_project());
+		sprintf(project, "%u", get_project());
 		DEVINFO_LOG("project %s\n", project);
 
 		for (index = 0; index < para_num; index++) {

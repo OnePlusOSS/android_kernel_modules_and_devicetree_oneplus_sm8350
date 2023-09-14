@@ -179,6 +179,7 @@ static int entity_over(struct sched_entity *a, struct sched_entity *b)
 }
 
 extern const struct sched_class fair_sched_class;
+extern const struct sched_class rt_sched_class;
 
 /* identify ux only opt in some case, but always keep it's id_type, and wont do inherit through test_task_ux() */
 bool test_task_identify_ux(struct task_struct *task, int id_type_ux)
@@ -209,7 +210,7 @@ inline bool test_task_ux(struct task_struct *task)
 	if (!task)
 		return false;
 
-	if (task->sched_class != &fair_sched_class)
+	if (task->sched_class != &fair_sched_class && task->sched_class != &rt_sched_class)
 		return false;
 
 	if (task->ux_state & (SA_TYPE_HEAVY | SA_TYPE_LIGHT | SA_TYPE_ANIMATOR | SA_TYPE_LISTPICK))
@@ -1611,7 +1612,58 @@ retry:
 	return;
 }
 
-#ifdef CONFIG_OPLUS_FEATURE_SCHED_SPREAD
+static int boost_kill = 1;
+module_param_named(boost_kill, boost_kill, uint, 0644);
+int get_grp(struct task_struct *p)
+{
+	struct cgroup_subsys_state *css;
+
+	if (p == NULL)
+		return false;
+	rcu_read_lock();
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0))
+	css = task_css(p, cpu_cgrp_id);
+#else
+	css = task_css(p, schedtune_cgrp_id);
+#endif
+	if (!css) {
+		rcu_read_unlock();
+		return false;
+	}
+	rcu_read_unlock();
+
+	return css->id;
+}
+
+void oplus_boost_kill_signal(int sig, struct task_struct *cur, struct task_struct *p)
+{
+	struct task_struct *tmp;
+	struct cpumask *new_mask = (struct cpumask *)cpu_possible_mask;
+
+	if (p == NULL)
+		return;
+	if (sig == SIGKILL && boost_kill && get_grp(p) == BGAPP &&
+			p->group_leader && p->group_leader->pid == p->pid) {
+		tmp = p;
+		rcu_read_lock();
+		/*walk all threads for each process */
+		do {
+			set_user_nice(tmp, -20);
+			if (!cpumask_empty(new_mask)) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
+				cpumask_copy(&tmp->cpus_allowed, new_mask);
+				cpumask_copy(&tmp->cpus_requested, new_mask);
+#else
+				cpumask_copy(&tmp->cpus_mask, new_mask);
+				tmp->cpus_ptr = new_mask;
+#endif
+				tmp->nr_cpus_allowed = cpumask_weight(new_mask);
+			}
+		}while_each_thread(p, tmp);
+		rcu_read_unlock();
+	}
+}
+
 static void requeue_runnable_task(struct task_struct *p)
 {
 	bool queued, running;
@@ -1634,7 +1686,6 @@ static void requeue_runnable_task(struct task_struct *p)
 
 	task_rq_unlock(rq, p, &rf);
 }
-#endif
 
 void set_inherit_ux(struct task_struct *task, int type, int depth, int inherit_val)
 {
@@ -1672,10 +1723,8 @@ void set_inherit_ux(struct task_struct *task, int type, int depth, int inherit_v
 
 	task_rq_unlock(rq, task, &flags);
 
-#ifdef CONFIG_OPLUS_FEATURE_SCHED_SPREAD
 	/* requeue runnable task to ensure vruntime adjust */
 	requeue_runnable_task(task);
-#endif
 }
 
 void reset_inherit_ux(struct task_struct *inherit_task, struct task_struct *ux_task, int reset_type)
@@ -2425,48 +2474,6 @@ static ssize_t proc_im_flag_write(struct file *file, const char __user *buf,
 	}
 
 	return count;
-}
-static int boost_kill = 1;
-module_param_named(boost_kill, boost_kill, uint, 0644);
-int get_grp(struct task_struct *p)
-{
-	struct cgroup_subsys_state *css;
-
-	if (p == NULL)
-		return false;
-	rcu_read_lock();
-	css = task_css(p, cpu_cgrp_id);
-	if (!css) {
-		rcu_read_unlock();
-		return false;
-	}
-	rcu_read_unlock();
-
-	return css->id;
-}
-
-void oplus_boost_kill_signal(int sig, struct task_struct *cur, struct task_struct *p)
-{
-	struct task_struct *tmp;
-	struct cpumask *new_mask = (struct cpumask *)cpu_possible_mask;
-
-	if (p == NULL)
-		return;
-	if (sig == SIGKILL && boost_kill && get_grp(p) == BGAPP &&
-			p->group_leader && p->group_leader->pid == p->pid) {
-		tmp = p;
-		rcu_read_lock();
-		/*walk all threads for each process */
-		do {
-			set_user_nice(tmp, -20);
-			if (!cpumask_empty(new_mask)) {
-				cpumask_copy(&tmp->cpus_mask, new_mask);
-				tmp->cpus_ptr = new_mask;
-				tmp->nr_cpus_allowed = cpumask_weight(new_mask);
-			}
-		}while_each_thread(p, tmp);
-		rcu_read_unlock();
-	}
 }
 
 static ssize_t proc_im_flag_read(struct file *file, char __user *buf,

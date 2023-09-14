@@ -19,6 +19,7 @@ else
 	subdir-y += oplus/walle
 	subdir-y += oplus/libai
 	subdir-y += oplus/lantian
+	subdir-y += oplus/lunaa
 
 endif
 #endif

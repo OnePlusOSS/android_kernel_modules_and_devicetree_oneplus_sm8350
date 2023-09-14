@@ -66,6 +66,7 @@
 #include "../oplus_adapter.h"
 #include "../oplus_short.h"
 #include "../oplus_configfs.h"
+#include "../oplus_chg_track.h"
 
 //#include "../gauge_ic/oplus_bq27541.h"
 #include "op_charge.h"
@@ -1170,6 +1171,22 @@ static int mtk_charger_parse_dt(struct charger_manager *info,
 	}
 	chg_err("wp:g_rap_pull_up_r0 = %d\n", g_rap_pull_up_r0);
 
+#ifdef OPLUS_FEATURE_CHG_BASIC
+	if (of_property_read_u32(np, "qcom,pd_not_support", &val) >= 0) {
+		info->data.pd_not_support = val;
+	} else {
+		chg_err("use pd_not_support false\n");
+		info->data.pd_not_support = 0;
+	}
+
+	if (of_property_read_u32(np, "qcom,qc_not_support", &val) >= 0) {
+		info->data.qc_not_support = val;
+	} else {
+		chg_err("use qc_not_support false\n");
+		info->data.qc_not_support = 0;
+	}
+#endif
+
 	return 0;
 }
 
@@ -1243,10 +1260,9 @@ static int oplus_step_charging_parse_dt(struct charger_manager *info,
 	}
 #endif
 
-	chg_err("step1_time: %d, step1_current: %d, step2_time: %d,step2_current: %d, step3_current: %d,pd_not_support: %d, qc_not_support:%d\n",
+	chg_err("step1_time: %d, step1_current: %d, step2_time: %d,step2_current: %d, step3_current: %d\n",
 				info->data.step1_time, info->data.step1_current_ma, info->data.step2_time,
-				info->data.step2_current_ma, info->data.step3_current_ma,
-				info->data.pd_not_support, info->data.qc_not_support);
+				info->data.step2_current_ma, info->data.step3_current_ma);
 
 	return 0;
 }
@@ -1395,6 +1411,7 @@ void notify_adapter_event(enum adapter_type type, enum adapter_event evt,
 			pinfo->pd_type = MTK_PD_CONNECT_PE_READY_SNK;
 			mutex_unlock(&pinfo->charger_pd_lock);
 #ifdef OPLUS_FEATURE_CHG_BASIC
+			oplus_chg_track_record_chg_type_info();
 			pinfo->in_good_connect = true;
 			oplus_get_adapter_svid();
 			chr_err("MTK_PD_CONNECT_PE_READY_SNK in_good_connect true\n");
@@ -1408,6 +1425,7 @@ void notify_adapter_event(enum adapter_type type, enum adapter_event evt,
 			pinfo->pd_type = MTK_PD_CONNECT_PE_READY_SNK_PD30;
 			mutex_unlock(&pinfo->charger_pd_lock);
 #ifdef OPLUS_FEATURE_CHG_BASIC
+			oplus_chg_track_record_chg_type_info();
 			pinfo->in_good_connect = true;
 			oplus_get_adapter_svid();
 			chr_err("MTK_PD_CONNECT_PE_READY_SNK_PD30 in_good_connect true\n");
@@ -1423,6 +1441,7 @@ void notify_adapter_event(enum adapter_type type, enum adapter_event evt,
 			/* PE40 is ready */
 			_wake_up_charger(pinfo);
 #ifdef OPLUS_FEATURE_CHG_BASIC
+			oplus_chg_track_record_chg_type_info();
 			pinfo->in_good_connect = true;
 			oplus_get_adapter_svid();
 			chr_err("MTK_PD_CONNECT_PE_READY_SNK_APDO in_good_connect true\n");
@@ -2481,8 +2500,10 @@ static void set_usbswitch_to_rxtx(struct oplus_chg_chip *chip)
 	//	return;
 	//}
 
+	mutex_lock(&chip->normalchg_gpio.pinctrl_mutex);
 	gpio_direction_output(chip->normalchg_gpio.chargerid_switch_gpio, 1);
 	ret = pinctrl_select_state(chip->normalchg_gpio.pinctrl, chip->normalchg_gpio.charger_gpio_as_output2);
+	mutex_unlock(&chip->normalchg_gpio.pinctrl_mutex);
 	if (ret < 0) {
 		chg_err("failed to set pinctrl int\n");
 	}
@@ -2499,8 +2520,10 @@ static void set_usbswitch_to_dpdm(struct oplus_chg_chip *chip)
 		return;
 	}
 
+	mutex_lock(&chip->normalchg_gpio.pinctrl_mutex);
 	gpio_direction_output(chip->normalchg_gpio.chargerid_switch_gpio, 0);
 	ret = pinctrl_select_state(chip->normalchg_gpio.pinctrl, chip->normalchg_gpio.charger_gpio_as_output1);
+	mutex_unlock(&chip->normalchg_gpio.pinctrl_mutex);
 	if (ret < 0) {
 		chg_err("failed to set pinctrl int\n");
 		return;

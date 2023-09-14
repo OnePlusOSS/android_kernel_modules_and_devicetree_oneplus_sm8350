@@ -35630,6 +35630,11 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"MultiMedia10 Mixer", "SLIM_1_TX", "SLIMBUS_1_TX"},
 	{"MultiMedia16 Mixer", "SLIM_0_TX", "SLIMBUS_0_TX"},
 	{"MultiMedia16 Mixer", "SLIM_1_TX", "SLIMBUS_1_TX"},
+#ifdef OPLUS_ARCH_EXTENDS
+	/* MULTIMEDIA.AUDIODRIVER.MACHINE, 2021/07/02, add for mmap-record bt-sco and mmap-record capture-fm */
+	{"MultiMedia16 Mixer", "SLIM_7_TX", "SLIMBUS_7_TX"},
+	{"MultiMedia16 Mixer", "SEC_MI2S_TX", "SEC_MI2S_TX"},
+#endif /* OPLUS_ARCH_EXTENDS */
 	{"MultiMedia5 Mixer", "SLIM_7_TX", "SLIMBUS_7_TX"},
 	{"MultiMedia5 Mixer", "SLIM_8_TX", "SLIMBUS_8_TX"},
 	{"MultiMedia5 Mixer", "SLIM_9_TX", "SLIMBUS_9_TX"},

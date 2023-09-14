@@ -569,6 +569,11 @@ struct sde_connector {
 	int rx_len;
 
 	struct edid *cached_edid;
+#ifdef OPLUS_BUG_STABILITY
+	// Used to indicate whether to update panel backlight in crtc_commit
+	bool bl_need_sync;
+#endif /* OPLUS_BUG_STABILITY */
+
 };
 
 #ifdef OPLUS_BUG_STABILITY

@@ -500,7 +500,8 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 #endif
 
 #if IS_ENABLED(CONFIG_TOUCHPANEL_OPLUS)
-	if (!strcmp(panel->name, "21075 ds ili7807s fhd tft lcd panel with dsc")) {
+	if (!strcmp(panel->name, "21075 ds ili7807s fhd tft lcd panel with dsc")
+		|| !strcmp(panel->name, "21643 ds ili7807s fhd tft lcd panel with dsc")) {
 		if (!is_pd_with_guesture || get_esd_check_happened())
 			rc = dsi_pwr_enable_regulator(&panel->power_info, true);
 	} else
@@ -557,7 +558,8 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 	if(get_esd_check_happened())
 		set_esd_check_happened(0);
 
-	if (!strcmp(panel->name, "21075 ds ili7807s fhd tft lcd panel with dsc")) {
+	if (!strcmp(panel->name, "21075 ds ili7807s fhd tft lcd panel with dsc")
+		|| !strcmp(panel->name, "21643 ds ili7807s fhd tft lcd panel with dsc")) {
 		mode = get_boot_mode();
 		pr_err("[TP] in dsi_panel_power_on, mode=%d\n", mode);
 		if ((mode != MSM_BOOT_MODE__FACTORY) && (mode != MSM_BOOT_MODE__RF) && (mode != MSM_BOOT_MODE__WLAN)) {
@@ -618,7 +620,8 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 /*#ifdef OPLUS_FEATURE_TP_BASIC*/
 	esd_check = get_esd_check_happened();
 
-	if (!strcmp(panel->name, "21075 ds ili7807s fhd tft lcd panel with dsc")) {
+	if (!strcmp(panel->name, "21075 ds ili7807s fhd tft lcd panel with dsc")
+		|| !strcmp(panel->name, "21643 ds ili7807s fhd tft lcd panel with dsc")) {
 		mode = get_boot_mode();
 		pr_err("[TP] in dsi_panel_power_off, mode=%d\n", mode);
 		if ((mode != MSM_BOOT_MODE__FACTORY) && (mode != MSM_BOOT_MODE__RF) && (mode != MSM_BOOT_MODE__WLAN)) {
@@ -630,7 +633,8 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 					pr_err("[TP] TP gesture is enable, Display not to power off\n");
 					return rc;
 				} else if (shutdown_flag == 1) {
-					if (!strcmp(panel->name, "21075 ds ili7807s fhd tft lcd panel with dsc")) {
+					if (!strcmp(panel->name, "21075 ds ili7807s fhd tft lcd panel with dsc")
+						|| !strcmp(panel->name, "21643 ds ili7807s fhd tft lcd panel with dsc")) {
 						tp_irq = gpio_to_irq(417);
 						pr_err("[TP] TP gesture is enable, but will shutdown. Need to disable tp-irq and goto power off, tp_irq:%d\n", tp_irq);
 						gpio_set_value(441, 0);
@@ -641,7 +645,8 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 			} else {
 				is_pd_with_guesture = false;
 				pr_err("[TP] TP gesture is disable, Display goto power off, And TP reset will low\n");
-				if (!strcmp(panel->name, "21075 ds ili7807s fhd tft lcd panel with dsc") && gpio_is_valid(441)) {
+				if ((!strcmp(panel->name, "21075 ds ili7807s fhd tft lcd panel with dsc")
+					|| !strcmp(panel->name, "21643 ds ili7807s fhd tft lcd panel with dsc")) && gpio_is_valid(441)) {
 					gpio_set_value(441, 0);
 					pr_err("[TP] TP reset-441 need low, now is %d\n", gpio_get_value(441));
 				}
@@ -650,6 +655,8 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 	}
 //#endif /*OPLUS_FEATURE_TP_BASIC*/
 #endif
+	if (!strcmp(panel->name,"boe nt37705 dsc cmd mode panel"))
+		mdelay(2);
 
 	if (gpio_is_valid(panel->reset_config.disp_en_gpio))
 		gpio_set_value(panel->reset_config.disp_en_gpio, 0);
@@ -691,7 +698,8 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 		mdelay(2);
 
 #if IS_ENABLED(CONFIG_TOUCHPANEL_OPLUS)
-	if (!strcmp(panel->name, "21075 ds ili7807s fhd tft lcd panel with dsc")) {
+	if (!strcmp(panel->name, "21075 ds ili7807s fhd tft lcd panel with dsc")
+		|| !strcmp(panel->name, "21643 ds ili7807s fhd tft lcd panel with dsc")) {
 		if (!is_pd_with_guesture || shutdown_flag == 1 || esd_check != 0)
 			rc = dsi_pwr_enable_regulator(&panel->power_info, false);
 	} else
@@ -964,7 +972,9 @@ static int dsi_panel_update_backlight(struct dsi_panel *panel,
 		return 0;
 	}
 
-	if (!strcmp(panel->name, "samsung ams662zs01 dvt dsc cmd mode panel")) {
+	if ((!strcmp(panel->name, "samsung ams662zs01 dvt dsc cmd mode panel"))
+		|| (!strcmp(panel->oplus_priv.vendor_name, "NT37705"))
+		|| (!strcmp(panel->oplus_priv.vendor_name, "ILI7838A"))) {
 		if ((get_oplus_display_scene() == OPLUS_DISPLAY_AOD_SCENE) && ( bl_lvl == 0)) {
 			pr_err("dsi_cmd AOD mode return bl_lvl:%d\n",bl_lvl);
 			return 0;
@@ -1115,8 +1125,10 @@ static int dsi_panel_update_backlight(struct dsi_panel *panel,
 				DSI_ERR("[%s] failed to send CMD_HBM cmds, rc=%d\n", panel->name, rc);
 		}
 		else if (!strcmp(panel->name,"samsung AMS643YE01 dsc cmd mode panel")
+					|| !strcmp(panel->name, "samsung ams662zs01 fhd cmd mode dsc dsi panel")
 					|| !strcmp(panel->name, "samsung ams662zs01 dvt dsc cmd mode panel")) {
-			if (!strcmp(panel->name, "samsung ams662zs01 dvt dsc cmd mode panel")) {
+			if (!strcmp(panel->name, "samsung ams662zs01 dvt dsc cmd mode panel")
+					|| !strcmp(panel->name, "samsung ams662zs01 fhd cmd mode dsc dsi panel")) {
 				if (get_oplus_display_power_status() == OPLUS_DISPLAY_POWER_DOZE
 					|| get_oplus_display_power_status() == OPLUS_DISPLAY_POWER_DOZE_SUSPEND) {
 					if (!nolp_state) {
@@ -1166,23 +1178,10 @@ static int dsi_panel_update_backlight(struct dsi_panel *panel,
 					pr_err("send DSI_CMD_HBM_ENTER_SWITCH fail\n");
 			}
 		}
-		else if (!strcmp(panel->oplus_priv.vendor_name, "AMS662ZS01")) {
-			if (bl_lvl > PANEL_MAX_NOMAL_BRIGHTNESS) {
-				if (enable_global_hbm_flags == 0) {
-					rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_HBM_ENTER_SWITCH);
-					enable_global_hbm_flags = 1;
-				}
-			}
-			else {
-				if(enable_global_hbm_flags == 1) {
-					rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_HBM_EXIT_SWITCH);
-					enable_global_hbm_flags = 0;
-				}
-			}
-		} else if(!strcmp(panel->oplus_priv.vendor_name, "AMB670YF01")) {
+		else if(!strcmp(panel->oplus_priv.vendor_name, "AMB670YF01")) {
 				oplus_display_panel_backlight_mapping(panel, &bl_lvl);
 		}
-		else {
+		else if(strcmp(panel->name,"tianma ili7838a dsc cmd mode panel")){
 			if (bl_lvl > panel->bl_config.bl_normal_max_level)
 				payload[1] = 0xE0;
 			else
@@ -2525,6 +2524,8 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	/* Add for 21005 esd check switch page */
 	"qcom,mdss-dsi-esd-switch-page-command",
 	"qcom,mdss-dsi-fps-switch-command",
+	"qcom,mdss-dsi-panel-info-switch-page-command",
+	"qcom,mdss-dsi-default-switch-page-command",
 #endif
 
 };
@@ -2629,6 +2630,8 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	/* Add for 21005 esd check switch page */
 	"qcom,mdss-dsi-esd-switch-page-command-state",
 	"qcom,mdss-dsi-fps-switch-command-state",
+	"qcom,mdss-dsi-panel-info-switch-page-command-state",
+	"qcom,mdss-dsi-default-switch-page-command-state",
 #endif
 
 };
@@ -5415,7 +5418,6 @@ int dsi_panel_set_lp1(struct dsi_panel *panel)
 		       panel->name, rc);
 #ifdef OPLUS_BUG_STABILITY
 	mutex_unlock(&panel->panel_lock);
-	/* Update aod light mode and fix 3658965*/
 	mutex_lock(&panel->panel_lock);
 	oplus_update_aod_light_mode_unlock(panel);
 	panel->need_power_on_backlight = true;
@@ -6104,11 +6106,13 @@ int dsi_panel_unprepare(struct dsi_panel *panel)
 	}
 
 #ifdef OPLUS_BUG_STABILITY
-	if (!strcmp(panel->name, "21075 ds ili7807s fhd tft lcd panel with dsc") \
+	if ((!strcmp(panel->name, "21075 ds ili7807s fhd tft lcd panel with dsc") \
+		|| !strcmp(panel->name, "21643 ds ili7807s fhd tft lcd panel with dsc"))
 		&& (!IS_ERR_OR_NULL(tp_gesture_enable_notifier))) {
 #if IS_ENABLED(CONFIG_TOUCHPANEL_OPLUS)
 		if ((1 != tp_gesture_enable_notifier(0)) || (shutdown_flag == 1)) {
-			if (!strcmp(panel->name, "21075 ds ili7807s fhd tft lcd panel with dsc") && gpio_is_valid(441)) {
+			if ((!strcmp(panel->name, "21075 ds ili7807s fhd tft lcd panel with dsc")
+				|| !strcmp(panel->name, "21643 ds ili7807s fhd tft lcd panel with dsc")) && gpio_is_valid(441)) {
 				gpio_set_value(441, 0);
 				pr_err("[TP] TP reset-441 need low more early, now is %d\n", gpio_get_value(441));
 			}
