@@ -3634,7 +3634,7 @@ static void ipa3_halt_q6_gsi_channels(bool prod)
 				gsi_ep_cfg->ipa_gsi_chan_num,
 				gsi_ep_cfg->ee,
 				code);
-				ipa_assert();
+				//ipa_assert();
 			}
 		}
 	}

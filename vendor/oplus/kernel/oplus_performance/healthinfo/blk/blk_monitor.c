@@ -71,6 +71,7 @@ static void blk_wait_monitor(struct blk_wait_para *para, struct request *rq, u64
 
 		ktime_get_real_ts64(&ts);
 		plwr->timestamp = (u64)ts.tv_sec;
+		plwr->timestamp_ns = (u64)ts.tv_nsec;
 
 		plwr->ms = wait_ms;
 	}

@@ -229,6 +229,11 @@ enum msm_mdp_conn_property {
 	CONNECTOR_PROP_QSYNC_MIN_FPS,
 #endif
 
+#ifdef OPLUS_BUG_STABILITY
+	// Prop to store sync panel backlight level
+	CONNECTOR_PROP_SYNC_BACKLIGHT_LEVEL,
+#endif /* OPLUS_BUG_STABILITY */
+
 	/* total # of properties */
 	CONNECTOR_PROP_COUNT
 };

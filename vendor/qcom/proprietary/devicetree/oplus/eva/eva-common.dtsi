@@ -643,6 +643,24 @@
 	type = "passive";
 };
 
+//#ifdef OPLUS_FEATURE_CHG_BASIC
+&pm8350_tz {
+	qcom,need_check_ref_byp;
+};
+
+&pm8350b_tz {
+	qcom,need_check_ref_byp;
+};
+
+&pm8350c_tz {
+	qcom,need_check_ref_byp;
+};
+
+&pmr735a_tz {
+	qcom,need_check_ref_byp;
+};
+//#endif
+
 &thermal_zones {
 	pa-therm5-usr {
 		polling-delay-passive = <0>;
@@ -1190,6 +1208,21 @@
                         <0xe7 0x6c      /* override_x0 */
                          0x0c 0x70      /* override_x1 */
                          0x17 0x74>;    /* override x2 */
+};
+
+&soc {
+	oplus,track-charge {
+		compatible = "oplus,track-charge";
+		track,fast_chg_break_t_thd = <1000>;
+		track,general_chg_break_t_thd = <200>;
+		track,voocphy_type = <1>;
+		track,wls_max_power = <0>;
+		track,wired_max_power = <80000>;
+		track,wls_bpp_chg_scheme = <0>;
+		track,wls_epp_chg_scheme = <0>;
+		track,wls_fast_chg_scheme = <0>;
+		track,wired_fast_chg_scheme = <1>;
+	};
 };
 //#endif /*OPLUS_FEATURE_CHG_BASIC*/
 
@@ -1844,6 +1877,7 @@
 		fw_update_app_support;
 		fingerprint_underscreen_support;
                 health_monitor_support;
+		exception_upload_support;
 		//esd_handle_support;
 		new_set_irq_wake_support;
 		// focalt x8 resolution config

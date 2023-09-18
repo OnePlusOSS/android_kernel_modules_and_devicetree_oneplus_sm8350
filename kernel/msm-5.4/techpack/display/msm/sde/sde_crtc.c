@@ -1620,9 +1620,12 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 					if (pstate->stage == cstate->fingerprint_dim_layer->stage) {
 						is_dim_valid = false;
 						oplus_dimlayer_fingerprint_failcount++;
-						SDE_ERROR("Skip fingerprint_dim_layer as it shared plane stage %d %d\n",
+						SDE_ERROR("Skip fingerprint_dim_layer as it shared plane stage %d %d, and clear fingerprint_dim_layer\n",
 						pstate->stage, cstate->fingerprint_dim_layer->stage);
 						SDE_EVT32(pstate->stage, cstate->fingerprint_dim_layer->stage, zpos_max, oplus_dimlayer_fingerprint_failcount);
+						cstate->fingerprint_dim_layer = NULL;
+						cstate->fingerprint_mode = false;
+						cstate->fingerprint_pressed = false;
 					}
 				}
 				if (is_dim_valid) {

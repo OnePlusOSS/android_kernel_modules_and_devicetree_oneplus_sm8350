@@ -390,7 +390,7 @@
 		qcom,wireless_max_chg_current_ma = <4000>;
 		qcom,wireless_chg_current_index = <2>;
 		qcom,support_airsvooc = <0>;
-
+		qcom,phone_id = <0x08>;
 		qcom,svooc_target_ichg_cold_fastchg_ma = <500>;              // -2
 
 		qcom,svooc_target_ichg_little_cold_fastchg_ma = <1200>;      // 0

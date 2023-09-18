@@ -39,7 +39,6 @@
 #define RT9471_DRV_VERSION	"1.0.6_MTK"
 
 #ifdef OPLUS_FEATURE_CHG_BASIC
-#include <soc/oplus/oplus_project.h>
 extern unsigned int is_project(int project );
 #endif /*OPLUS_FEATURE_CHG_BASIC*/
 
@@ -3255,7 +3254,7 @@ module_i2c_driver(rt9471_i2c_driver);
 
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("ShuFanLee <shufan_lee@richtek.com>");
+MODULE_AUTHOR("ShuFanLee");
 MODULE_DESCRIPTION("RT9471 Charger Driver");
 MODULE_VERSION(RT9471_DRV_VERSION);
 /*

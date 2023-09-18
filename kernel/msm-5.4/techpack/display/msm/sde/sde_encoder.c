@@ -4413,6 +4413,102 @@ int oplus_sync_panel_brightness(enum oplus_sync_method method, struct drm_encode
 	return rc;
 }
 
+// Use oplus_set_brightness instead of backlight_device_set_brightness to avoid time consumption of backlight_generate_event()
+int oplus_set_brightness(struct backlight_device *bd,
+				    unsigned long brightness)
+{
+	int rc = -ENXIO;
+
+	mutex_lock(&bd->ops_lock);
+	if (bd->ops) {
+		if (brightness > bd->props.max_brightness)
+			rc = -EINVAL;
+		else {
+			pr_debug("set brightness to %lu\n", brightness);
+			bd->props.brightness = brightness;
+			rc = backlight_update_status(bd);
+		}
+	}
+	mutex_unlock(&bd->ops_lock);
+
+	return rc;
+}
+
+int oplus_sync_panel_brightness_v2(struct drm_encoder *drm_enc)
+{
+	struct sde_encoder_virt *sde_enc = NULL;
+	struct sde_encoder_phys *phys_encoder = NULL;
+	struct sde_connector *c_conn = NULL;
+	struct dsi_display *display = NULL;
+	struct sde_connector_state *c_state;
+	int rc = 0;
+	struct sde_encoder_phys_cmd *cmd_enc = NULL;
+	struct sde_encoder_phys_cmd_te_timestamp *te_timestamp;
+	s64 us_per_frame;
+	u32 vsync_width;
+	ktime_t last_te_timestamp;
+	s64 delay;
+	bool sync_backlight;
+	u32 brightness;
+	char tag_name[64];
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	phys_encoder = sde_enc->phys_encs[0];
+
+	if (phys_encoder == NULL)
+		return -EFAULT;
+	if (phys_encoder->connector == NULL)
+		return -EFAULT;
+
+	c_conn = to_sde_connector(phys_encoder->connector);
+	if (c_conn == NULL)
+		return -EFAULT;
+
+	if (c_conn->connector_type != DRM_MODE_CONNECTOR_DSI)
+		return 0;
+
+	c_state = to_sde_connector_state(c_conn->base.state);
+
+	display = c_conn->display;
+	if (display == NULL)
+		return -EFAULT;
+
+	cmd_enc = to_sde_encoder_phys_cmd(phys_encoder);
+	if (cmd_enc == NULL) {
+		return -EFAULT;
+	}
+
+	us_per_frame = get_current_vsync_period(sde_enc->cur_master->connector);
+	vsync_width = get_current_vsync_width(sde_enc->cur_master->connector);
+	te_timestamp = list_last_entry(&cmd_enc->te_timestamp_list, struct sde_encoder_phys_cmd_te_timestamp, list);
+	if (te_timestamp == NULL) {
+		return rc;
+	}
+	last_te_timestamp = te_timestamp->timestamp;
+
+	sync_backlight = c_conn->bl_need_sync;
+	c_conn->bl_need_sync = false;
+
+	if (sync_backlight) {
+		SDE_ATRACE_BEGIN("sync_panel_brightness");
+		brightness = sde_connector_get_property(c_conn->base.state, CONNECTOR_PROP_SYNC_BACKLIGHT_LEVEL);
+		delay = vsync_width - (ktime_to_us(ktime_sub(ktime_get(), last_te_timestamp)) % us_per_frame);
+		if (delay > 0) {
+			SDE_EVT32(us_per_frame, last_te_timestamp, delay);
+			usleep_range(delay, delay + 100);
+		}
+
+		snprintf(tag_name, sizeof(tag_name), "%s: %d", display->display_type, brightness);
+		SDE_ATRACE_BEGIN(tag_name);
+		rc = oplus_set_brightness(c_conn->bl_device, brightness);
+		SDE_ATRACE_END(tag_name);
+		SDE_ATRACE_END("sync_panel_brightness");
+	}
+
+	return rc;
+}
+
+
 int dc_apollo_sync_hbmon(struct dsi_display *display)
 {
 	if (display == NULL)
@@ -4526,7 +4622,11 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 			} else {
 				display = c_conn->display;
 				if(display && display->panel && display->panel->oplus_priv.vendor_name) {
-					if (strcmp(display->panel->oplus_priv.vendor_name, "AMB655X") && strcmp(display->panel->oplus_priv.vendor_name, "AMB670YF01") && strcmp(display->panel->oplus_priv.vendor_name, "AMS662ZS01")) {
+					if (strcmp(display->panel->oplus_priv.vendor_name, "AMB655X")
+						&& strcmp(display->panel->oplus_priv.vendor_name, "AMB670YF01")
+						&& strcmp(display->panel->oplus_priv.vendor_name, "AMS662ZS01")
+						&& strcmp(display->panel->oplus_priv.vendor_name, "NT37705")
+						&& strcmp(display->panel->oplus_priv.vendor_name, "ILI7838A")) {
 						sde_connector_update_hbm(sde_enc->cur_master->connector);
 					}
 				}
@@ -4765,6 +4865,8 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc, bool is_error,
 			if (sde_enc->num_phys_encs > 0 ) {
 				oplus_sync_panel_brightness(OPLUS_POST_KICKOFF_METHOD, drm_enc);
 			}
+		} else {
+			oplus_sync_panel_brightness_v2(drm_enc);
 		}
 	}
 #endif /* OPLUS_BUG_STABILITY */

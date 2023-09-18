@@ -187,6 +187,9 @@
 		pinctrl-names = "rf_cable_active";
 		pinctrl-0 = <&rf_cable0_active>;
 	};
+	feedback_fb: feedback_fb {
+		compatible = "oplus,haptic-feedback";
+	};
 };
 
 //baihang.Wang 2021/06/01 add for supporting tp-ic-78807s
@@ -251,6 +254,7 @@
                 lcd_trigger_load_tp_fw_support;
                 //fw_update_in_probe_with_headfile;
                 health_monitor_support;
+		exception_upload_support;
                 //high_resolution_support;
         };
 };

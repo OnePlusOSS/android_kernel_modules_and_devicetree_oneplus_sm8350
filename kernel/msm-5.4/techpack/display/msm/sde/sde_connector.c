@@ -1100,6 +1100,13 @@ static int _sde_connector_update_dirty_properties(
 		case CONNECTOR_PROP_HDR_METADATA:
 			_sde_connector_update_hdr_metadata(c_conn, c_state);
 			break;
+#ifdef OPLUS_BUG_STABILITY
+		case CONNECTOR_PROP_SYNC_BACKLIGHT_LEVEL:
+			if (c_conn) {
+				c_conn->bl_need_sync = true;
+			}
+		break;
+#endif /* OPLUS_BUG_STABILITY */
 		default:
 			/* nothing to do for most properties */
 			break;
@@ -1180,7 +1187,11 @@ int sde_connector_pre_kickoff(struct drm_connector *connector, bool force_update
 	if (c_conn->connector_type == DRM_MODE_CONNECTOR_DSI) {
 		display = (struct dsi_display *)c_conn->display;
 		if(display && display->panel && display->panel->oplus_priv.vendor_name) {
-			if ((!strcmp(display->panel->oplus_priv.vendor_name, "AMB655X")) || (!strcmp(display->panel->oplus_priv.vendor_name, "AMB670YF01")) || (!strcmp(display->panel->oplus_priv.vendor_name, "AMS662ZS01"))) {
+			if ((!strcmp(display->panel->oplus_priv.vendor_name, "AMB655X"))
+				|| (!strcmp(display->panel->oplus_priv.vendor_name, "AMB670YF01"))
+				|| (!strcmp(display->panel->oplus_priv.vendor_name, "AMS662ZS01"))
+				|| (!strcmp(display->panel->oplus_priv.vendor_name, "NT37705"))
+				|| (!strcmp(display->panel->oplus_priv.vendor_name, "ILI7838A"))) {
 				rc = sde_connector_update_hbm(connector);
 			}
 		}
@@ -1900,6 +1911,13 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		}
 		break;
 #endif
+
+#ifdef OPLUS_BUG_STABILITY
+	case CONNECTOR_PROP_SYNC_BACKLIGHT_LEVEL:
+		msm_property_set_dirty(&c_conn->property_info, &c_state->property_state, idx);
+		break;
+#endif /* OPLUS_BUG_STABILITY */
+
 	default:
 		break;
 	}
@@ -3139,6 +3157,11 @@ static int _sde_connector_install_properties(struct drm_device *dev,
 				sizeof(dsi_display->panel->hdr_props),
 				CONNECTOR_PROP_HDR_INFO);
 		}
+
+#ifdef OPLUS_BUG_STABILITY
+		msm_property_install_volatile_range(&c_conn->property_info, "sync_backlight_level",
+				 0x0, 0, ~0, 0, CONNECTOR_PROP_SYNC_BACKLIGHT_LEVEL);
+#endif /* OPLUS_BUG_STABILITY */
 
 		mutex_lock(&c_conn->base.dev->mode_config.mutex);
 		sde_connector_fill_modes(&c_conn->base,

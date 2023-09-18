@@ -474,7 +474,9 @@ void record_callstacks(struct task_struct *p, struct callstacks *csp, u64 delta)
 	u32 id;
 	unsigned long *cs;
 	u64 timestamp, now;
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
+	struct stack_trace record_trace;
+#endif
 	if (!p || !csp)
 		return;
 
@@ -488,8 +490,16 @@ void record_callstacks(struct task_struct *p, struct callstacks *csp, u64 delta)
 	id = csp->id;
 	cs = (unsigned long *)&csp->func[id];
 	memset(cs, 0, sizeof(csp->func));
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
+	record_trace.nr_entries = 0;
+	record_trace.max_entries = CALL_STACK_LEVEL;
+	record_trace.entries = cs;
+	record_trace.skip = SKIP_LEVEL;
+	save_stack_trace_tsk(p, &record_trace);
+	level = record_trace.nr_entries;
+#else
 	level = stack_trace_save_tsk(p, cs, CALL_STACK_LEVEL, SKIP_LEVEL);
+#endif
 	if (level < CALL_STACK_LEVEL)
 		cs[level] = 0;
 

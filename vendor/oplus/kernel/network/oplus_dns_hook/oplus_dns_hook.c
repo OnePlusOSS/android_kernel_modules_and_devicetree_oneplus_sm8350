@@ -56,6 +56,8 @@
 #define DNS_IPV4_LEN       4
 #define QUERY_MATCH_EXTEND 5
 
+#define DNS_HOOK_MARK_MASK 0x20000000
+
 #pragma pack(1)
 typedef struct {
     uint32_t inuse;
@@ -363,6 +365,12 @@ static int dns_hook_process_postrouting(struct sk_buff *skb, int hook, const str
     if (!s_dns_hook_enable) {
         return -1;
     }
+
+	if (skb->mark & DNS_HOOK_MARK_MASK) {
+		LOGK(1, "warn: skb enter this function twice");
+		return -1;
+	}
+
     if (check_dns_package(skb, 0)) {
         return -1;
     }
@@ -421,6 +429,7 @@ static int dns_hook_process_postrouting(struct sk_buff *skb, int hook, const str
         ret = ip6_local_out(state->net, state->sk, rsp_skb);
         LOGK(0, "ip6_local_out return %d", ret);
     }
+	rsp_skb->mark |= DNS_HOOK_MARK_MASK;
 
     return 0;
 }

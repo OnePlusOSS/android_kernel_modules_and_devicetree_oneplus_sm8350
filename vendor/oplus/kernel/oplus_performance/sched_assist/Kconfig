@@ -14,7 +14,7 @@ config OPLUS_UX_IM_FLAG
 	default n
 	help
 	  export im_flag proc node for mark thread.
-config OPLUS_OPLUS_RELEASE_BUFFER_CALLBAACK_UX
+config OPLUS_RELEASE_BUFFER_CALLBACK_UX
 	bool "config launcher async release buffer callback ux"
 	default n
 	help
