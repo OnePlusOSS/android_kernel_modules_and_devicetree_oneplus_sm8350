@@ -2671,11 +2671,6 @@ static void oplus_chg_show_ui_soc_decimal(struct work_struct *work)
 		if (chip->rsd.smooth_switch_v2 && chip->rsd.reserve_chg_soc)
 			speed = speed * OPLUS_FULL_SOC / (OPLUS_FULL_SOC - chip->rsd.reserve_chg_soc);
 		pr_err("[oplus_chg_show_ui_soc_decimal] icharging = %d, batt_fcc :%d", chip->icharging, chip->batt_fcc);
-		if(chip->ui_soc - chip->smooth_soc > 2) {
-			ratio = 2;
-			speed = speed / 2;
-		} else if (chip->ui_soc < chip->smooth_soc) {
-			speed = speed * 2;
 		if ((oplus_pps_get_adapter_type() == PPS_ADAPTER_OPLUS_V2 ) && (oplus_pps_get_support_type() == PPS_SUPPORT_2CP)) {
 			if (chip->ui_soc > chip->smooth_soc) {
 				speed = speed / 2;
@@ -5368,7 +5363,6 @@ int oplus_chg_parse_charger_dt(struct oplus_chg_chip *chip)
 		}
 
 	}
-
 	chip->full_pre_ffc_judge = of_property_read_bool(node, "full_pre_ffc_judge");
 	rc = of_property_read_u32(node, "full-pre-ffc-mv", &chip->full_pre_ffc_mv);
 	if (rc < 0) {
@@ -7454,10 +7448,6 @@ void oplus_chg_variables_reset(struct oplus_chg_chip *chip, bool in)
 			}
 			chip->calculate_decimal_time = 0;
 		}
-		if (chip->balancing_bat_status !=
-			    PARALLEL_BAT_BALANCE_ERROR_STATUS8 &&
-		    chip->balancing_bat_status !=
-			    PARALLEL_BAT_BALANCE_ERROR_STATUS9) {
 		if (chip->balancing_bat_status !=  PARALLEL_BAT_BALANCE_ERROR_STATUS8 &&
 		    chip->balancing_bat_status !=  PARALLEL_BAT_BALANCE_ERROR_STATUS9) {
 			chip->balancing_bat_stop_chg = 0;
@@ -7676,7 +7666,6 @@ void oplus_chg_variables_reset(struct oplus_chg_chip *chip, bool in)
 	chip->pps_force_svooc = false;
 	chip->usbtemp_curr_status = 0;
 	oplus_pps_variables_reset(in);
-	chip->limits.force_input_current_ma = 0;
 	chip->bcc_cool_down = 0;
 	chip->bcc_curr_done = BCC_CURR_DONE_UNKNOW;
 	chip->limits.force_input_current_ma = 0;
@@ -12336,7 +12325,6 @@ int oplus_chg_show_vooc_logo_ornot(void)
 			|| oplus_vooc_get_fastchg_to_warm() == true
 			|| oplus_vooc_get_fastchg_dummy_started() == true
 			|| oplus_vooc_get_adapter_update_status() == ADAPTER_FW_NEED_UPDATE) {
-		if ((g_charger_chip->vooc_project == 1 || g_charger_chip->vooc_project == 5 || g_charger_chip->vooc_project == 13)
 		if ((g_charger_chip->vooc_project == 1 || g_charger_chip->vooc_project == 5 || g_charger_chip->vooc_project == 13
 			|| g_charger_chip->vooc_project == DUAL_BATT_150W)
 			&& g_charger_chip->prop_status == POWER_SUPPLY_STATUS_FULL
@@ -14414,16 +14402,6 @@ bool oplus_get_vooc_start_fg(void)
 	} else {
 		return g_charger_chip->vooc_start_fail;
 	}
-}
-
-int oplus_chg_get_stop_chg(void)
-{
-	struct oplus_chg_chip *chip = g_charger_chip;
-	if (!chip) {
-                printk(KERN_ERR "[OPLUS_CHG][%s]: oplus_chip not ready!\n", __func__);
-                return 0;
-        }
-	return chip->stop_chg;
 }
 
 int oplus_chg_get_stop_chg(void)

@@ -10677,40 +10677,6 @@ static void oplus_otg_status_check_work(struct work_struct *work)
 		}
 		real_soc = chip->soc;
 	} else {
-		batt_current = oplus_gauge_get_batt_current();
-		real_soc = oplus_gauge_get_batt_soc();
-	}
-	pr_err("oplus_otg_status_check_work, batt_current = %d, skin_temp = %d, real_soc = %d, otg_protect_cnt(%d)\n",
-		batt_current, skin_temp, real_soc, otg_protect_cnt);
-
-	contion1 = ((batt_current > 1700) && (skin_temp > OTG_SKIN_TEMP_HIGH));
-	contion2 = (batt_current > 3000);
-	contion3 = (skin_temp > OTG_SKIN_TEMP_MAX);
-	contion4 = ((real_soc < 10) && (batt_current > 1700));
-	contion5 = ((skin_temp < 0) && (batt_current > 1700));
-
-	if ((contion1 || contion2 || contion3 || contion4 || contion5) && (get_eng_version() != HIGH_TEMP_AGING)) {
-		otg_protect_cnt++;
-		if(otg_protect_cnt >= 2) {
-			if (!bcdev->otg_prohibited) {
-				bcdev->otg_prohibited = true;
-				schedule_delayed_work(&bcdev->otg_vbus_enable_work, 0);
-				pr_err("OTG prohibited, batt_current = %d, skin_temp = %d, real_soc = %d\n",
-					batt_current, skin_temp, real_soc);
-			}
-		}
-	} else {
-		otg_protect_cnt = 0;
-	}
-
-	if (bcdev->otg_boost_src == OTG_BOOST_SOURCE_EXTERNAL) {
-		rc = oplus_get_bat_info_for_otg_status_check(&real_soc, &batt_current);
-		if (rc < 0) {
-			pr_err("Error oplus_get_bat_info_for_otg_status_check, rc = %d\n", rc);
-			return;
-		}
-		real_soc = chip->soc;
-	} else {
 		if (oplus_switching_support_parallel_chg()) {
 			batt_current = oplus_gauge_get_batt_current() +
 					oplus_gauge_get_sub_batt_current();
@@ -11608,7 +11574,6 @@ static int battery_chg_probe(struct platform_device *pdev)
 	oplus_adsp_voocphy_set_match_temp();
 	oplus_dwc3_config_usbphy_pfunc(&oplus_is_pd_svooc);
 	schedule_delayed_work(&bcdev->otg_init_work, 0);
-	oplus_pps_register_ops(&oplus_sm8350_pps_ops);
 #ifdef PM_REG_DEBUG
 	init_debug_reg_proc(oplus_chip);
 #endif

@@ -584,9 +584,6 @@
 #define REG53_MP2650_ADDRESS                                 0x53
 #define REG3E_MP2650_ADDRESS                                 0x3E
 
-#define MP2650_MAX_ADDRESS			0xFFFF
-
-#define MP2762_AICL_POINT_SWITCH_THRE		7500
 #define MP2762_AICL_POINT_VOL_9V		8500
 
 #define MP2762_AICL_POINT_VOL_PHASE1		4000
@@ -598,8 +595,6 @@
 #define MP2762SW_AICL_POINT_5V_PHASE2		4535
 
 #define WAIT_RESUME_MAX_TRY_TIME                100
-
-#define WAIT_RESUME_MAX_TRY_TIME                30
 
 enum {
 	OVERTIME_AC = 0,

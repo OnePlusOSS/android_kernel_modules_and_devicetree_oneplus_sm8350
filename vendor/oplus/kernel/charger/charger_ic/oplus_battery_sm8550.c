@@ -6142,6 +6142,670 @@ static int oplus_usbtemp_monitor_main_new_method(void *data)
 
 bool oplus_usbtemp_l_trigger_current_status(void)
 {
+	if (g_oplus_chip->support_usbtemp_protect_v2)
+		oplus_usbtemp_kthread =
+				kthread_run(oplus_usbtemp_monitor_main_new_method, 0, "usbtemp_kthread");
+	else
+		oplus_usbtemp_kthread =
+				kthread_run(oplus_usbtemp_monitor_main, 0, "usbtemp_kthread");
+	if (IS_ERR(oplus_usbtemp_kthread)) {
+		chg_err("failed to cread oplus_usbtemp_kthread\n");
+	}
+}
+
+	if (g_oplus_chip->usb_temp_l < USB_30C || g_oplus_chip->usb_temp_l > USB_100C) {
+		return false;
+	}
+
+	if (oplus_usbtemp_check_is_support() == true) {
+		if (g_oplus_chip->support_usbtemp_protect_v2)
+			wake_up_interruptible(&g_oplus_chip->oplus_usbtemp_wq_new_method);
+		else
+			wake_up_interruptible(&g_oplus_chip->oplus_usbtemp_wq);
+	}
+}
+
+bool oplus_usbtemp_l_recovery_current_status(void)
+{
+	if (!g_oplus_chip)
+		return false;
+
+	if (g_oplus_chip->usbtemp_curr_status == OPLUS_USBTEMP_LOW_CURR) {
+		if ((g_oplus_chip->usb_temp_l <= g_oplus_chip->usbtemp_cool_down_recover_ntc_low) &&
+			(g_oplus_chip->usb_temp_l - g_tbatt_temp / 10) <=
+				g_oplus_chip->usbtemp_cool_down_recover_gap_low)
+			return true;
+		return false;
+	} else if (g_oplus_chip->usbtemp_curr_status == OPLUS_USBTEMP_HIGH_CURR) {
+		if ((g_oplus_chip->usb_temp_l <= g_oplus_chip->usbtemp_cool_down_recover_ntc_high) &&
+			(g_oplus_chip->usb_temp_l - g_tbatt_temp / 10) <=
+				g_oplus_chip->usbtemp_cool_down_recover_gap_high)
+			return true;
+		return false;
+	} else {
+		return false;
+	}
+}
+
+bool oplus_usbtemp_r_trigger_current_status(void)
+{
+	if (!g_oplus_chip)
+		return false;
+
+	if (g_oplus_chip->usb_temp_r < USB_30C || g_oplus_chip->usb_temp_r > USB_100C) {
+		return false;
+	}
+
+	if (g_oplus_chip->usbtemp_curr_status == OPLUS_USBTEMP_LOW_CURR) {
+		if ((g_oplus_chip->usb_temp_r >= g_oplus_chip->usbtemp_cool_down_ntc_low) ||
+			(g_oplus_chip->usb_temp_r - g_tbatt_temp / 10) >=
+				g_oplus_chip->usbtemp_cool_down_gap_low)
+			return true;
+		return false;
+	} else if (g_oplus_chip->usbtemp_curr_status == OPLUS_USBTEMP_HIGH_CURR) {
+		if ((g_oplus_chip->usb_temp_r >= g_oplus_chip->usbtemp_cool_down_ntc_high) ||
+			(g_oplus_chip->usb_temp_r - g_tbatt_temp / 10) >=
+				g_oplus_chip->usbtemp_cool_down_gap_high)
+			return true;
+		return false;
+	} else {
+		return false;
+	}
+}
+
+bool oplus_usbtemp_r_recovery_current_status(void)
+{
+	if (!g_oplus_chip)
+		return false;
+
+	if (g_oplus_chip->usbtemp_curr_status == OPLUS_USBTEMP_LOW_CURR) {
+		if ((g_oplus_chip->usb_temp_r <= g_oplus_chip->usbtemp_cool_down_recover_ntc_low) &&
+			(g_oplus_chip->usb_temp_r - g_tbatt_temp / 10) <=
+				g_oplus_chip->usbtemp_cool_down_recover_gap_low)
+			return true;
+		return false;
+	} else if (g_oplus_chip->usbtemp_curr_status == OPLUS_USBTEMP_HIGH_CURR) {
+		if ((g_oplus_chip->usb_temp_r <= g_oplus_chip->usbtemp_cool_down_recover_ntc_high) &&
+			(g_oplus_chip->usb_temp_r - g_tbatt_temp / 10) <=
+				g_oplus_chip->usbtemp_cool_down_recover_gap_high)
+			return true;
+		return false;
+	} else {
+		return false;
+	}
+}
+
+#define RETRY_COUNT		3
+static void oplus_update_usbtemp_current_status_new_method(struct oplus_chg_chip *chip)
+{
+	static int limit_cur_cnt_r = 0;
+	static int limit_cur_cnt_l = 0;
+	static int recover_cur_cnt_r = 0;
+	static int recover_cur_cnt_l = 0;
+	int condition, batt_current;
+	int last_usb_temp_l = 25;
+	int last_usb_temp_r = 25;
+
+	if (!chip) {
+		return;
+	}
+
+	batt_current = chip->usbtemp_batt_current;
+
+	if((chip->usb_temp_l < USB_30C || chip->usb_temp_l > USB_100C)
+		&& (chip->usb_temp_r < USB_30C || chip->usb_temp_r > USB_100C)) {
+		chip->smart_charge_user = SMART_CHARGE_USER_OTHER;
+		chip->usbtemp_cool_down = 0;
+		limit_cur_cnt_r = 0;
+		recover_cur_cnt_r = 0;
+		limit_cur_cnt_l = 0;
+		recover_cur_cnt_l = 0;
+		return;
+	}
+
+	if (oplus_usbtemp_r_trigger_current_status()) {
+		limit_cur_cnt_r++;
+		if (limit_cur_cnt_r >= RETRY_COUNT) {
+			limit_cur_cnt_r = RETRY_COUNT;
+		}
+		recover_cur_cnt_r = 0;
+	} else if (oplus_usbtemp_r_recovery_current_status())  {
+		recover_cur_cnt_r++;
+		if (recover_cur_cnt_r >= RETRY_COUNT) {
+			recover_cur_cnt_r = RETRY_COUNT;
+		}
+		limit_cur_cnt_r = 0;
+	}
+
+	if (oplus_usbtemp_l_trigger_current_status()) {
+		limit_cur_cnt_l++;
+		if (limit_cur_cnt_l >= RETRY_COUNT) {
+			limit_cur_cnt_l = RETRY_COUNT;
+		}
+		recover_cur_cnt_l = 0;
+	} else if (oplus_usbtemp_l_recovery_current_status())  {
+		recover_cur_cnt_l++;
+		if (recover_cur_cnt_l >= RETRY_COUNT) {
+			recover_cur_cnt_l = RETRY_COUNT;
+		}
+		limit_cur_cnt_l = 0;
+	}
+
+	if ((RETRY_COUNT <= limit_cur_cnt_r || RETRY_COUNT <= limit_cur_cnt_l)
+			&& (chip->smart_charge_user == SMART_CHARGE_USER_OTHER)) {
+		chg_err("use usbtemp cooldown g_tbatt_temp:%d, usb_temp_l:%d, usb_temp_r:%d, usbtemp_batttemp_current_gap:%d\n",
+			g_tbatt_temp, chip->usb_temp_l, chip->usb_temp_r, chip->usbtemp_batttemp_current_gap);
+		chip->smart_charge_user = SMART_CHARGE_USER_USBTEMP;
+		chip->cool_down_done = true;
+		limit_cur_cnt_r = 0;
+		recover_cur_cnt_r = 0;
+		limit_cur_cnt_l = 0;
+		recover_cur_cnt_l = 0;
+		condition = USBTEMP_TRIGGER_CONDITION_COOL_DOWN;
+		oplus_chg_track_upload_usbtemp_info(chip,
+				condition, last_usb_temp_l, last_usb_temp_r, batt_current);
+	} else if ((RETRY_COUNT <= recover_cur_cnt_r &&  RETRY_COUNT <= recover_cur_cnt_l)
+			&& (chip->smart_charge_user == SMART_CHARGE_USER_USBTEMP)) {
+		chip->smart_charge_user = SMART_CHARGE_USER_OTHER;
+		chip->usbtemp_cool_down = 0;
+		limit_cur_cnt_r = 0;
+		recover_cur_cnt_r = 0;
+		limit_cur_cnt_l = 0;
+		recover_cur_cnt_l = 0;
+		condition = USBTEMP_TRIGGER_CONDITION_COOL_DOWN_RECOVERY;
+		oplus_chg_track_upload_usbtemp_info(chip,
+				condition, last_usb_temp_l, last_usb_temp_r, batt_current);
+	}
+
+	return;
+}
+
+bool oplus_usbtemp_condition_temp_high(void)
+{
+	if (!g_oplus_chip)
+		return false;
+
+	if (g_oplus_chip->usbtemp_curr_status == OPLUS_USBTEMP_LOW_CURR) {
+		if (g_tbatt_temp / 10 <= g_oplus_chip->usbtemp_batt_temp_low &&
+			(((g_oplus_chip->usb_temp_l >= g_oplus_chip->usbtemp_ntc_temp_low)
+					&& (g_oplus_chip->usb_temp_l < USB_100C))
+			|| ((g_oplus_chip->usb_temp_r >= g_oplus_chip->usbtemp_ntc_temp_low)
+					&& (g_oplus_chip->usb_temp_r < USB_100C))))
+			return true;
+		return false;
+	} else if (g_oplus_chip->usbtemp_curr_status == OPLUS_USBTEMP_HIGH_CURR) {
+		if (g_tbatt_temp / 10 <= g_oplus_chip->usbtemp_batt_temp_high &&
+			(((g_oplus_chip->usb_temp_l >= g_oplus_chip->usbtemp_ntc_temp_high)
+					&& (g_oplus_chip->usb_temp_l < USB_100C))
+			|| ((g_oplus_chip->usb_temp_r >= g_oplus_chip->usbtemp_ntc_temp_high)
+					&& (g_oplus_chip->usb_temp_r < USB_100C))))
+			return true;
+		return false;
+	} else {
+		return false;
+	}
+}
+
+bool oplus_usbtemp_temp_rise_fast_with_batt_temp(void)
+{
+	if (!g_oplus_chip)
+		return false;
+
+	if (g_oplus_chip->usbtemp_curr_status == OPLUS_USBTEMP_LOW_CURR) {
+		if (g_tbatt_temp / 10 > g_oplus_chip->usbtemp_batt_temp_low &&
+				(((g_oplus_chip->usb_temp_l >= g_tbatt_temp / 10 +
+					g_oplus_chip->usbtemp_temp_gap_low_with_batt_temp)
+					&& (g_oplus_chip->usb_temp_l < USB_100C))
+				|| ((g_oplus_chip->usb_temp_r >= g_tbatt_temp / 10 +
+					g_oplus_chip->usbtemp_temp_gap_low_with_batt_temp)
+					&& (g_oplus_chip->usb_temp_r < USB_100C))))
+			return true;
+		return false;
+	} else if (g_oplus_chip->usbtemp_curr_status == OPLUS_USBTEMP_HIGH_CURR) {
+		if (g_tbatt_temp/10 > g_oplus_chip->usbtemp_batt_temp_high &&
+				(((g_oplus_chip->usb_temp_l >= g_tbatt_temp / 10 +
+					g_oplus_chip->usbtemp_temp_gap_high_with_batt_temp)
+						&& (g_oplus_chip->usb_temp_l < USB_100C))
+				|| ((g_oplus_chip->usb_temp_r >= g_tbatt_temp / 10 +
+					g_oplus_chip->usbtemp_temp_gap_high_with_batt_temp)
+						&& (g_oplus_chip->usb_temp_r < USB_100C))))
+			return true;
+		return false;
+	} else {
+		return false;
+	}
+}
+
+bool oplus_usbtemp_temp_rise_fast_without_batt_temp(void)
+{
+	if (!g_oplus_chip)
+		return false;
+
+	if (g_oplus_chip->usbtemp_curr_status == OPLUS_USBTEMP_LOW_CURR) {
+		if ((((g_oplus_chip->usb_temp_l - g_tbatt_temp / 10) >=
+				g_oplus_chip->usbtemp_temp_gap_low_without_batt_temp)
+				&& (g_oplus_chip->usb_temp_l < USB_100C)) ||
+			(((g_oplus_chip->usb_temp_r - g_tbatt_temp / 10) >=
+				g_oplus_chip->usbtemp_temp_gap_low_without_batt_temp)
+				&& (g_oplus_chip->usb_temp_r < USB_100C)))
+			return true;
+		return false;
+	} else if (g_oplus_chip->usbtemp_curr_status == OPLUS_USBTEMP_HIGH_CURR) {
+		if ((((g_oplus_chip->usb_temp_l - g_tbatt_temp / 10) >=
+				g_oplus_chip->usbtemp_temp_gap_high_without_batt_temp)
+				&& (g_oplus_chip->usb_temp_l < USB_100C)) ||
+			(((g_oplus_chip->usb_temp_r - g_tbatt_temp / 10) >=
+				g_oplus_chip->usbtemp_temp_gap_high_without_batt_temp)
+				&& (g_oplus_chip->usb_temp_r < USB_100C)))
+			return true;
+		return false;
+	} else {
+		return false;
+	}
+}
+
+bool oplus_usbtemp_judge_temp_gap(int current_temp, int last_temp)
+{
+	if (!g_oplus_chip)
+		return false;
+
+	if (g_oplus_chip->usbtemp_curr_status == OPLUS_USBTEMP_LOW_CURR) {
+		if ((current_temp - last_temp) >= g_oplus_chip->usbtemp_rise_fast_temp_low)
+			return true;
+		return false;
+	} else if (g_oplus_chip->usbtemp_curr_status == OPLUS_USBTEMP_HIGH_CURR) {
+		if ((current_temp - last_temp) >= g_oplus_chip->usbtemp_rise_fast_temp_high)
+			return true;
+		return false;
+	} else {
+		return false;
+	}
+}
+
+bool oplus_usbtemp_change_curr_range(struct oplus_chg_chip *chip, int retry_cnt,
+					int usbtemp_first_time_in_curr_range, bool curr_range_change)
+{
+	static int last_curr_change_usb_temp_l = 25;
+	static int current_curr_change_temp_l = 25;
+	static int last_curr_change_usb_temp_r = 25;
+	static int current_curr_change_temp_r = 25;
+	int count_curr_r = 1, count_curr_l = 1;
+	int i = 0;
+
+	if (!chip)
+		return false;
+
+	chip->usbtemp_curr_status = OPLUS_USBTEMP_HIGH_CURR;
+	if (usbtemp_first_time_in_curr_range == false) {
+		last_curr_change_usb_temp_r = chip->usb_temp_r;
+		last_curr_change_usb_temp_l = chip->usb_temp_l;
+	} else {
+		current_curr_change_temp_r = chip->usb_temp_r;
+		current_curr_change_temp_l = chip->usb_temp_l;
+	}
+	if (((current_curr_change_temp_l - last_curr_change_usb_temp_l) >= OPLUS_USBTEMP_CURR_CHANGE_TEMP)
+			|| (current_curr_change_temp_r - last_curr_change_usb_temp_r) >= OPLUS_USBTEMP_CURR_CHANGE_TEMP) {
+		for (i = 1; i <= retry_cnt; i++) {
+			mdelay(RETRY_CNT_DELAY);
+			get_usb_temp(chip);
+			if ((chip->usb_temp_r - last_curr_change_usb_temp_r) >= OPLUS_USBTEMP_CURR_CHANGE_TEMP
+					&& chip->usb_temp_r < USB_100C)
+				count_curr_r++;
+			if ((chip->usb_temp_l - last_curr_change_usb_temp_l) >= OPLUS_USBTEMP_CURR_CHANGE_TEMP
+					&& chip->usb_temp_l < USB_100C)
+				count_curr_l++;
+			pr_err("countl : %d,countr : %d", count_curr_l, count_curr_r);
+		}
+		current_curr_change_temp_l = chip->usb_temp_l;
+		current_curr_change_temp_r = chip->usb_temp_r;
+
+		if ((count_curr_l >= retry_cnt &&  chip->usb_temp_l > USB_30C && chip->usb_temp_l < USB_100C)
+				|| (count_curr_r >= retry_cnt &&  chip->usb_temp_r > USB_30C  && chip->usb_temp_r < USB_100C)) {
+			chg_err("change curr range...,current_temp_l=%d,last_usb_temp_l=%d,current_temp_r=%d,last_usb_temp_r =%d, chip->tbatt_temp = %d\n",
+					current_curr_change_temp_l,
+					last_curr_change_usb_temp_l,
+					current_curr_change_temp_r,
+					last_curr_change_usb_temp_r,
+					chip->tbatt_temp);
+			count_curr_r = 1;
+			count_curr_l = 1;
+			return true;
+		}
+	}
+
+	if (curr_range_change == false || chip->usbtemp_curr_status != OPLUS_USBTEMP_LOW_CURR) {
+		last_curr_change_usb_temp_r = chip->usb_temp_r;
+		last_curr_change_usb_temp_l = chip->usb_temp_l;
+	}
+
+	return false;
+}
+
+bool oplus_usbtemp_trigger_for_high_temp(struct oplus_chg_chip *chip, int retry_cnt,
+					int count_r, int count_l)
+{
+	int i = 0;
+
+	if (!chip)
+		return false;
+
+	if (oplus_usbtemp_condition_temp_high()) {
+		pr_err("in usbtemp higher than 57 or 69!\n");
+		for (i = 1; i < retry_cnt; i++) {
+			mdelay(RETRY_CNT_DELAY);
+			get_usb_temp(chip);
+			if (chip->usbtemp_curr_status == OPLUS_USBTEMP_LOW_CURR) {
+				if (chip->usb_temp_r >= chip->usbtemp_ntc_temp_low && chip->usb_temp_r < USB_100C)
+					count_r++;
+				if (chip->usb_temp_l >= chip->usbtemp_ntc_temp_low && chip->usb_temp_l < USB_100C)
+					count_l++;
+			} else if (chip->usbtemp_curr_status == OPLUS_USBTEMP_HIGH_CURR) {
+				if (chip->usb_temp_r >= chip->usbtemp_ntc_temp_high && chip->usb_temp_r < USB_100C)
+					count_r++;
+				if (chip->usb_temp_l >= chip->usbtemp_ntc_temp_high && chip->usb_temp_l < USB_100C)
+				count_l++;
+			}
+			pr_err("countl : %d countr : %d", count_l, count_r);
+		}
+	}
+	if (count_r >= retry_cnt || count_l >= retry_cnt) {
+		return true;
+	}
+
+	return false;
+}
+
+bool oplus_usbtemp_trigger_for_rise_fast_temp(struct oplus_chg_chip *chip, int retry_cnt,
+					int count_r, int count_l)
+{
+	int i = 0;
+
+	if (!chip)
+		return false;
+
+	if (oplus_usbtemp_temp_rise_fast_with_batt_temp()) {
+		pr_err("in usbtemp rise fast with usbtemp!\n");
+		for (i = 1; i <= retry_cnt; i++) {
+			mdelay(RETRY_CNT_DELAY);
+			get_usb_temp(chip);
+			if (chip->usbtemp_curr_status == OPLUS_USBTEMP_LOW_CURR) {
+				if ((chip->usb_temp_r >= g_tbatt_temp/10 + chip->usbtemp_temp_gap_low_with_batt_temp)
+						&& chip->usb_temp_r < USB_100C)
+					count_r++;
+				if ((chip->usb_temp_l >= g_tbatt_temp/10 + chip->usbtemp_temp_gap_low_with_batt_temp)
+						&& chip->usb_temp_l < USB_100C)
+					count_l++;
+			} else if (chip->usbtemp_curr_status == OPLUS_USBTEMP_HIGH_CURR) {
+				if ((chip->usb_temp_r >= g_tbatt_temp/10 + chip->usbtemp_temp_gap_high_with_batt_temp)
+						&& chip->usb_temp_r < USB_100C)
+					count_r++;
+				if ((chip->usb_temp_l >= g_tbatt_temp/10 + chip->usbtemp_temp_gap_high_with_batt_temp)
+						&& chip->usb_temp_l < USB_100C)
+					count_l++;
+			}
+			pr_err("countl : %d countr : %d", count_l, count_r);
+		}
+		if (count_r >= retry_cnt || count_l >= retry_cnt) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool oplus_usbtemp_trigger_for_rise_fast_without_temp(struct oplus_chg_chip *chip, int retry_cnt,
+					int count_r, int count_l, int total_count)
+{
+	static int count = 0;
+	static int last_usb_temp_l = 25;
+	static int current_temp_l = 25;
+	static int last_usb_temp_r = 25;
+	static int current_temp_r = 25;
+	int i = 0;
+
+	if (!chip)
+		return false;
+
+	if (oplus_usbtemp_temp_rise_fast_without_batt_temp()) {
+		if (count == 0) {
+			last_usb_temp_r = chip->usb_temp_r;
+			last_usb_temp_l = chip->usb_temp_l;
+			current_temp_r = chip->usb_temp_r;
+			current_temp_l = chip->usb_temp_l;
+		} else {
+			current_temp_r = chip->usb_temp_r;
+			current_temp_l = chip->usb_temp_l;
+		}
+		if (oplus_usbtemp_judge_temp_gap(current_temp_l, last_usb_temp_l)
+				|| oplus_usbtemp_judge_temp_gap(current_temp_r, last_usb_temp_r)) {
+			for (i = 1; i <= retry_cnt; i++) {
+				mdelay(RETRY_CNT_DELAY);
+				oplus_get_usbtemp_volt(chip);
+				get_usb_temp(chip);
+				current_temp_l = chip->usb_temp_l;
+				current_temp_r = chip->usb_temp_r;
+				if (oplus_usbtemp_judge_temp_gap(current_temp_r, last_usb_temp_r)
+						&& chip->usb_temp_r < USB_100C)
+					count_r++;
+				if (oplus_usbtemp_judge_temp_gap(current_temp_l, last_usb_temp_l)
+						&& chip->usb_temp_l < USB_100C)
+					count_l++;
+				pr_err("countl : %d,countr : %d", count_l, count_r);
+			}
+			current_temp_l = chip->usb_temp_l;
+			current_temp_r = chip->usb_temp_r;
+			if ((count_l >= retry_cnt &&  chip->usb_temp_l > USB_30C && chip->usb_temp_l < USB_100C)
+					|| (count_r >= retry_cnt &&  chip->usb_temp_r > USB_30C  && chip->usb_temp_r < USB_100C))  {
+					return true;
+			}
+			count_r = 1;
+			count_l = 1;
+		}
+		count++;
+		if (count > total_count)
+			count = 0;
+	} else {
+		count = 0;
+		last_usb_temp_r = chip->usb_temp_r;
+		last_usb_temp_l = chip->usb_temp_l;
+	}
+	return false;
+}
+
+#define OPCHG_LOW_USBTEMP_RETRY_COUNT 10
+#define OPLUS_CHG_CURRENT_READ_COUNT 15
+static int oplus_usbtemp_monitor_main_new_method(void *data)
+{
+	int delay = 0;
+	int vbus_volt = 0;
+	static int count = 0;
+	static int last_usb_temp_l = 25;
+	static int last_usb_temp_r = 25;
+	static int total_count = 0;
+	int retry_cnt = 3;
+	int count_r = 1, count_l = 1;
+	bool condition1 = false;
+	bool condition2 = false;
+	int condition;
+	struct oplus_chg_chip *chip = g_oplus_chip;
+	static int log_count = 0;
+	static bool curr_range_change = false;
+	int batt_current = 0;
+	struct timespec curr_range_change_first_time;
+	struct timespec curr_range_change_last_time;
+	bool usbtemp_first_time_in_curr_range = false;
+	static current_read_count = 0;
+
+	pr_err("[oplus_usbtemp_monitor_main_new_method]:run first!");
+
+	while (!kthread_should_stop()) {
+		wait_event_interruptible(chip->oplus_usbtemp_wq_new_method, chip->usbtemp_check == true);
+		if(chip->dischg_flag == true) {
+			goto dischg;
+		}
+		oplus_get_usbtemp_volt(chip);
+		get_usb_temp(chip);
+		if ((chip->usb_temp_l < USB_50C) && (chip->usb_temp_r < USB_50C)) {/*get vbus when usbtemp < 50C*/
+			vbus_volt = get_battery_mvolts_for_usbtemp_monitor(chip);
+		} else {
+			vbus_volt = 0;
+		}
+		if ((chip->usb_temp_l < USB_40C) && (chip->usb_temp_r < USB_40C)) {
+			delay = MAX_MONITOR_INTERVAL;
+			total_count = 10;
+		} else {
+			delay = MIN_MONITOR_INTERVAL;
+			total_count = 30;
+		}
+
+		current_read_count = current_read_count + 1;
+		if (current_read_count == OPLUS_CHG_CURRENT_READ_COUNT) {
+			if (oplus_switching_support_parallel_chg()) {
+				chip->usbtemp_batt_current = -(oplus_gauge_get_batt_current() + oplus_gauge_get_sub_batt_current());
+			} else {
+				if (oplus_vooc_get_allow_reading()) {
+					chip->usbtemp_batt_current = -oplus_gauge_get_batt_current();
+				} else {
+					chip->usbtemp_batt_current = -oplus_gauge_get_prev_batt_current();
+				}
+			}
+			current_read_count = 0;
+		}
+
+		oplus_usbtemp_recover_tbatt_temp(chip);
+		oplus_update_usbtemp_current_status_new_method(chip);
+
+		batt_current = chip->usbtemp_batt_current;
+
+		if ((chip->usbtemp_volt_l < USB_50C) && (chip->usbtemp_volt_r < USB_50C) && (vbus_volt < VBUS_VOLT_THRESHOLD))
+			delay = VBUS_MONITOR_INTERVAL;
+
+		if (usbtemp_dbg_curr_status < OPLUS_USBTEMP_LOW_CURR
+					|| usbtemp_dbg_curr_status > OPLUS_USBTEMP_HIGH_CURR) {
+			if (chip->usbtemp_batt_current > 5000) {
+				chip->usbtemp_curr_status = OPLUS_USBTEMP_HIGH_CURR;
+			} else if (chip->usbtemp_batt_current > 0 && chip->usbtemp_batt_current <= 5000) {
+				chip->usbtemp_curr_status = OPLUS_USBTEMP_LOW_CURR;
+			}
+		} else if (usbtemp_dbg_curr_status == OPLUS_USBTEMP_LOW_CURR
+					|| usbtemp_dbg_curr_status == OPLUS_USBTEMP_HIGH_CURR) {
+			chip->usbtemp_curr_status = usbtemp_dbg_curr_status;
+		}
+
+		if (curr_range_change == false && chip->usbtemp_batt_current < 5000
+				&& chip->usbtemp_pre_batt_current >= 5000) {
+			curr_range_change = true;
+			curr_range_change_first_time = current_kernel_time();
+		} else if (curr_range_change == true && chip->usbtemp_batt_current >= 5000
+				&& chip->usbtemp_pre_batt_current < 5000) {
+			curr_range_change = false;
+		}
+
+		if (curr_range_change == true && chip->usbtemp_curr_status == OPLUS_USBTEMP_LOW_CURR) {
+			if (oplus_usbtemp_change_curr_range(chip, retry_cnt,
+						usbtemp_first_time_in_curr_range, curr_range_change))  {
+				chip->usbtemp_curr_status = OPLUS_USBTEMP_LOW_CURR;
+				curr_range_change = false;
+			}
+			if (usbtemp_first_time_in_curr_range == false) {
+				usbtemp_first_time_in_curr_range = true;
+			}
+			curr_range_change_last_time = current_kernel_time();
+			if (curr_range_change_last_time.tv_sec - curr_range_change_first_time.tv_sec >=
+						OPLUS_USBTEMP_CHANGE_RANGE_TIME) {
+				chip->usbtemp_curr_status = OPLUS_USBTEMP_LOW_CURR;
+			}
+		} else {
+			usbtemp_first_time_in_curr_range = false;
+		}
+
+		if ((chip->usb_temp_l < USB_40C) && (chip->usb_temp_r < USB_40C)) {
+			total_count = OPCHG_LOW_USBTEMP_RETRY_COUNT;
+		} else if (chip->usbtemp_curr_status == OPLUS_USBTEMP_LOW_CURR) {
+			total_count = chip->usbtemp_rise_fast_temp_count_low;
+		} else if (chip->usbtemp_curr_status == OPLUS_USBTEMP_HIGH_CURR) {
+			total_count = chip->usbtemp_rise_fast_temp_count_high;
+		}
+
+		/*condition1  :the temp is higher than 57*/
+		if (oplus_usbtemp_trigger_for_high_temp(chip, retry_cnt, count_r, count_l)) {
+			if (!IS_ERR_OR_NULL(chip->normalchg_gpio.dischg_enable)) {
+					chip->dischg_flag = true;
+				condition1 = true;
+				chg_err("dischg enable1...[%d, %d, %d]\n", chip->usb_temp_l, chip->usb_temp_r, g_tbatt_temp);
+			}
+			count_r = 1;
+			count_l = 1;
+			count = 0;
+			last_usb_temp_r = chip->usb_temp_r;
+			last_usb_temp_l = chip->usb_temp_l;
+		}
+
+		if (oplus_usbtemp_trigger_for_rise_fast_temp(chip, retry_cnt, count_r, count_l)) {
+			if (!IS_ERR_OR_NULL(chip->normalchg_gpio.dischg_enable) ||
+					chip->usbtemp_dischg_by_pmic) {
+				chip->dischg_flag = true;
+				condition1 = true;
+				chg_err("dischg enable1...[%d, %d]\n", chip->usb_temp_l, chip->usb_temp_r);
+			}
+			count_r = 1;
+			count_l = 1;
+			count = 0;
+			last_usb_temp_r = chip->usb_temp_r;
+			last_usb_temp_l = chip->usb_temp_l;
+		}
+		if(condition1 == true) {
+			pr_err("jump_to_dischg");
+			goto dischg;
+		}
+
+		/*condition2  :the temp uprising to fast*/
+		if (oplus_usbtemp_trigger_for_rise_fast_without_temp(chip, retry_cnt, count_r, count_l, total_count))  {
+			if (!IS_ERR_OR_NULL(chip->normalchg_gpio.dischg_enable) ||
+					chip->usbtemp_dischg_by_pmic) {
+				chip->dischg_flag = true;
+				condition2 = true;
+			}
+		}
+	/*judge whether to go the action*/
+	dischg:
+		if ((chip->usb_temp_l < USB_30C || chip->usb_temp_l > USB_100C)
+				&& (chip->usb_temp_r < USB_30C || chip->usb_temp_r > USB_100C)) {
+			condition1 = false;
+			condition2 = false;
+			chip->dischg_flag = false;
+		}
+		if((condition1== true || condition2 == true) && chip->dischg_flag == true) {
+			condition = (condition1== true ?
+				USBTEMP_TRIGGER_CONDITION_1 :
+				USBTEMP_TRIGGER_CONDITION_2);
+			oplus_chg_track_upload_usbtemp_info(chip,
+				condition, last_usb_temp_l, last_usb_temp_r, batt_current);
+			oplus_usbtemp_dischg_action(chip);
+			condition1 = false;
+			condition2 = false;
+		} else if (chip->debug_force_usbtemp_trigger) {
+			oplus_chg_track_upload_usbtemp_info(
+				chip, chip->debug_force_usbtemp_trigger,
+				last_usb_temp_l, last_usb_temp_r, batt_current);
+			chip->debug_force_usbtemp_trigger = 0;
+		}
+		msleep(delay);
+		log_count++;
+		chip->usbtemp_pre_batt_current = batt_current;
+		if (log_count == 40) {
+			chg_err("==================usbtemp_volt_l[%d], usb_temp_l[%d], usbtemp_volt_r[%d], usb_temp_r[%d]\n",
+					chip->usbtemp_volt_l, chip->usb_temp_l, chip->usbtemp_volt_r, chip->usb_temp_r);
+			chg_err("usbtemp current status = %d\n", chip->usbtemp_curr_status);
+			log_count = 0;
+		}
+	}
+
+	return 0;
+}
+
+bool oplus_usbtemp_l_trigger_current_status(void)
+{
 	if (!g_oplus_chip)
 		return false;
 

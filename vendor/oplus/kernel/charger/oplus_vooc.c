@@ -3158,11 +3158,6 @@ void oplus_vooc_turn_off_fastchg(void)
 	} else {
 		oplus_chg_unsuspend_charger();
 	}
-	if (oplus_chg_get_stop_chg() == 0) {
-		oplus_chg_suspend_charger();
-	} else {
-		oplus_chg_unsuspend_charger();
-	}
 }
 
 bool opchg_get_mcu_update_state(void)

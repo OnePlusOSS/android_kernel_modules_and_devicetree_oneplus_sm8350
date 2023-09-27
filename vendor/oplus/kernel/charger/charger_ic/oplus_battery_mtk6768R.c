@@ -1324,10 +1324,10 @@ static bool oplus_usbtemp_check_is_support(void)
 
 static int oplus_dischg_gpio_init(struct oplus_chg_chip *chip)
 {
-        if (!chip) {
+	if (!chip) {
 		chg_err("oplus_chip not ready!\n");
 		return -EINVAL;
-        }
+	}
 
 	chip->normalchg_gpio.pinctrl = devm_pinctrl_get(chip->dev);
 

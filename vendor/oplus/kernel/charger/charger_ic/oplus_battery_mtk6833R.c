@@ -1245,21 +1245,6 @@ static int oplus_step_charging_parse_dt(struct charger_manager *info,
 		info->data.step3_current_ma = 2640;
 	}
 
-#ifdef OPLUS_FEATURE_CHG_BASIC
-	if (of_property_read_u32(np, "qcom,pd_not_support", &val) >= 0) {
-		info->data.pd_not_support = val;
-	} else {
-		chg_err("use pd_not_support false\n");
-		info->data.pd_not_support = 0;
-	}
-	if (of_property_read_u32(np, "qcom,qc_not_support", &val) >= 0) {
-		info->data.qc_not_support = val;
-	} else {
-		chg_err("use qc_not_support false\n");
-		info->data.qc_not_support = 0;
-	}
-#endif
-
 	chg_err("step1_time: %d, step1_current: %d, step2_time: %d,step2_current: %d, step3_current: %d\n",
 				info->data.step1_time, info->data.step1_current_ma, info->data.step2_time,
 				info->data.step2_current_ma, info->data.step3_current_ma);

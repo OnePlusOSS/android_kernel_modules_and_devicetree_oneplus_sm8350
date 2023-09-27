@@ -2072,10 +2072,6 @@ static void oplus_chg_track_record_charger_info(
 			  OPLUS_CHG_TRACK_CURX_INFO_LEN - index,
 			  "$$mmi_chg@@%d", track_status->once_mmi_chg);
 
-	index += snprintf(&(p_trigger_data->crux_info[index]),
-			  OPLUS_CHG_TRACK_CURX_INFO_LEN - index,
-			  "$$mmi_chg@@%d", track_status->once_mmi_chg);
-
 	oplus_chg_track_record_general_info(chip, track_status, p_trigger_data, index);
 }
 
@@ -3941,9 +3937,6 @@ int oplus_chg_track_check_wired_charging_break(int vbus_rising)
 		oplus_chg_track_set_fastchg_break_code(
 			TRACK_VOOCPHY_BREAK_DEFAULT);
 		track_status->pre_fastchg_type = POWER_SUPPLY_TYPE_UNKNOWN;
-		mutex_lock(&track_chip->online_hold_lock);
-		if (delayed_work_pending(&track_chip->check_wired_online_work))
-			cancel_delayed_work_sync(&track_chip->check_wired_online_work);
 		if (delayed_work_pending(&track_chip->check_wired_online_work))
 			cancel_delayed_work_sync(&track_chip->check_wired_online_work);
 		mutex_lock(&track_chip->online_hold_lock);
@@ -3955,16 +3948,6 @@ int oplus_chg_track_check_wired_charging_break(int vbus_rising)
 		if (!track_status->wired_online)
 			track_status->chg_detach_time_ms = 0;
 		else
-		track_status->chg_detach_time_ms =
-			local_clock() / TRACK_LOCAL_T_NS_TO_MS_THD;
-		mutex_lock(&track_chip->online_hold_lock);
-		if (delayed_work_pending(&track_chip->check_wired_online_work))
-			cancel_delayed_work_sync(&track_chip->check_wired_online_work);
-		track_status->wired_online_check_stop = false;
-		track_status->wired_online_check_count =
-				TRACK_ONLINE_CHECK_COUNT_THD;
-		schedule_delayed_work(&track_chip->check_wired_online_work, 0);
-		mutex_unlock(&track_chip->online_hold_lock);
 			track_status->chg_detach_time_ms = local_clock() / TRACK_LOCAL_T_NS_TO_MS_THD;
 		if (delayed_work_pending(&track_chip->check_wired_online_work))
 			cancel_delayed_work_sync(&track_chip->check_wired_online_work);

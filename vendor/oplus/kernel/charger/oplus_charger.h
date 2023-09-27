@@ -1307,7 +1307,6 @@ struct oplus_chg_chip {
 	struct reserve_soc_data rsd;
 	bool is_gauge_ready;
 
-	bool support_subboard_ntc;
 	bool pd_disable;
 	bool support_wd0;
 

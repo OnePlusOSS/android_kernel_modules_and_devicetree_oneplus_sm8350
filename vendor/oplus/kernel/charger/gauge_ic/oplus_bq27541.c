@@ -680,7 +680,6 @@ int zy0603_reset_rc_sfr(void)
 }
 EXPORT_SYMBOL(zy0603_reset_rc_sfr);
 
->>>>>>> mpx_663
 /* OPLUS 2021-06-20 Add begin for zy0603 bad battery. */
 static int zy0603_start_checksum_cal(struct chip_bq27541 *chip)
 {
