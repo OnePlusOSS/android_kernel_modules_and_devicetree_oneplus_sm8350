@@ -41,6 +41,25 @@ enum ufcs_curr_table_type {
 	UFCS_CURR_CP_TABLE = 1,
 };
 
+enum ufcs_user_err_type {
+	UFCS_ERR_IBUS_LIMIT = 1,
+	UFCS_ERR_CP_ENABLE,
+	UFCS_ERR_R_COOLDOWN,
+	UFCS_ERR_BATT_BTB_COOLDOWN,
+	UFCS_ERR_IBAT_OVER,
+	UFCS_ERR_BTB_OVER,
+	UFCS_ERR_MOS_OVER,
+	UFCS_ERR_USBTEMP_OVER,
+	UFCS_ERR_TFG_OVER,
+	UFCS_ERR_VBAT_DIFF,
+	UFCS_ERR_STARTUP_FAIL,
+	UFCS_ERR_CIRCUIT_SWITCH,
+	UFCS_ERR_ANTHEN_ERR,
+	UFCS_ERR_PDO_ERR,
+	UFCS_ERR_IMP,
+	UFCS_ERR_MAX,
+};
+
 int oplus_ufcs_current_to_level(struct oplus_mms *topic, int curr);
 enum fastchg_protocol_type oplus_ufcs_adapter_id_to_protocol_type(u32 id);
 int oplus_ufcs_adapter_id_to_power(u32 id);

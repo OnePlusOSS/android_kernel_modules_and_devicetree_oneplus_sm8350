@@ -13,6 +13,7 @@ def define_oplus_local_modules():
             "fp_platform.c",
             "fingerprint_event.c",
             "fp_health.c",
+            "fp_netlink.c",
         ]),
         ko_deps = [
 #            "//vendor/oplus/kernel/touchpanel/oplus_touchscreen_v2:oplus_bsp_tp_notify",	#built in-tree

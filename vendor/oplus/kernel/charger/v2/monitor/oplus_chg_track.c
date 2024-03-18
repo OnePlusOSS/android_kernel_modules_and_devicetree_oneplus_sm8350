@@ -584,14 +584,17 @@ struct oplus_chg_track {
 	oplus_chg_track_trigger *slow_chg_info_trigger;
 	oplus_chg_track_trigger *chg_cycle_info_trigger;
 	oplus_chg_track_trigger *wls_info_trigger;
+	oplus_chg_track_trigger *ufcs_info_trigger;
 	struct delayed_work mmi_chg_info_trigger_work;
 	struct delayed_work slow_chg_info_trigger_work;
 	struct delayed_work chg_cycle_info_trigger_work;
 	struct delayed_work wls_info_trigger_work;
+	struct delayed_work ufcs_info_trigger_work;
 	struct mutex mmi_chg_info_lock;
 	struct mutex slow_chg_info_lock;
 	struct mutex chg_cycle_info_lock;
 	struct mutex wls_info_lock;
+	struct mutex ufcs_info_lock;
 
 	char voocphy_name[OPLUS_CHG_TRACK_VOOCPHY_NAME_LEN];
 
@@ -2047,7 +2050,7 @@ static int oplus_chg_track_parse_dt(struct oplus_chg_track *track_dev)
 			chg_err("preversion open SocJump NoCharging FastChgBreak olc config\n");
 			track_dev->track_cfg.exception_data.olc_config[0] = 0x2;
 			track_dev->track_cfg.exception_data.olc_config[2] = 0x1;
-			track_dev->track_cfg.exception_data.olc_config[4] = 0x1;
+			track_dev->track_cfg.exception_data.olc_config[4] = 0x7;
 		}
 #endif
 	} else {
@@ -2744,6 +2747,19 @@ static void oplus_chg_track_wls_info_trigger_work(struct work_struct *work)
 	mutex_unlock(&chip->wls_info_lock);
 }
 
+static void oplus_chg_track_ufcs_info_trigger_work(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct oplus_chg_track *chip = container_of(dwork, struct oplus_chg_track, ufcs_info_trigger_work);
+
+	if (chip->ufcs_info_trigger) {
+		oplus_chg_track_upload_trigger_data(*(chip->ufcs_info_trigger));
+		kfree(chip->ufcs_info_trigger);
+		chip->ufcs_info_trigger = NULL;
+	}
+	mutex_unlock(&chip->ufcs_info_lock);
+}
+
 static int oplus_chg_track_speed_ref_init(struct oplus_chg_track *chip)
 {
 	if (!chip)
@@ -2797,6 +2813,7 @@ static int oplus_chg_track_init(struct oplus_chg_track *track_dev)
 	mutex_init(&chip->slow_chg_info_lock);
 	mutex_init(&chip->chg_cycle_info_lock);
 	mutex_init(&chip->wls_info_lock);
+	mutex_init(&chip->ufcs_info_lock);
 
 	chip->track_status.curr_soc = -EINVAL;
 	chip->track_status.curr_smooth_soc = -EINVAL;
@@ -2990,6 +3007,7 @@ static int oplus_chg_track_init(struct oplus_chg_track *track_dev)
 	INIT_DELAYED_WORK(&chip->slow_chg_info_trigger_work, oplus_chg_track_slow_chg_info_trigger_work);
 	INIT_DELAYED_WORK(&chip->chg_cycle_info_trigger_work, oplus_chg_track_chg_cycle_info_trigger_work);
 	INIT_DELAYED_WORK(&chip->wls_info_trigger_work, oplus_chg_track_wls_info_trigger_work);
+	INIT_DELAYED_WORK(&chip->ufcs_info_trigger_work, oplus_chg_track_ufcs_info_trigger_work);
 	return ret;
 }
 
@@ -3530,8 +3548,7 @@ oplus_chg_track_check_chg_abnormal(struct oplus_monitor *monitor,
 			NOTIFY_BAT_FULL_THIRD_BATTERY, track_status);
 	}
 
-	chg_info(
-		"track_notify_code:0x%x, chager_notify_code:0x%x, abnormal_reason[%s]\n",
+	chg_debug("track_notify_code:0x%x, chager_notify_code:0x%x, abnormal_reason[%s]\n",
 		notify_code, monitor->notify_code,
 		track_status->chg_abnormal_reason);
 
@@ -3615,7 +3632,7 @@ oplus_chg_track_cal_chg_common_mesg(struct oplus_monitor *monitor,
 	}
 	pre_slow_chg = monitor->slow_chg_enable;
 
-	chg_info("chg_max_temp:%d, batt_max_temp:%d, batt_max_curr:%d, "
+	chg_debug("chg_max_temp:%d, batt_max_temp:%d, batt_max_curr:%d, "
 		"batt_max_vol:%d, once_mmi_chg:%d, once_chg_cycle_status:%d\n",
 		track_status->chg_max_temp, track_status->batt_max_temp,
 		track_status->batt_max_curr, track_status->batt_max_vol,
@@ -5391,6 +5408,12 @@ static int oplus_chg_track_upload_ic_err_info(struct oplus_chg_track *track)
 		track->ic_err_msg_load_trigger.flag_reason =
 			TRACK_NOTIFY_FLAG_MOS_ERROR_ABNORMAL;
 		break;
+	case OPLUS_IC_ERR_UFCS:
+		track->ic_err_msg_load_trigger.flag_reason =
+			TRACK_NOTIFY_FLAG_UFCS_IC_ABNORMAL;
+		index += oplus_chg_track_obtain_power_info(track_buf + index,
+			OPLUS_CHG_TRIGGER_MSG_LEN - index);
+		break;
 	case OPLUS_IC_ERR_I2C:
 	case OPLUS_IC_ERR_UNKNOWN:
 	default:
@@ -5732,6 +5755,48 @@ static int oplus_chg_track_upload_wls_info(struct oplus_chg_track *chip)
 		OPLUS_CHG_TRACK_CURX_INFO_LEN - index);
 
 	schedule_delayed_work(&chip->wls_info_trigger_work, 0);
+	chg_info("success\n");
+	return 0;
+}
+
+static int oplus_chg_track_upload_ufcs_info(struct oplus_chg_track *chip)
+{
+	int index = 0;
+	union mms_msg_data data = { 0 };
+	int rc = 0;
+
+	if (!chip)
+		return -EINVAL;
+
+	mutex_lock(&chip->ufcs_info_lock);
+	if (chip->ufcs_info_trigger)
+		kfree(chip->ufcs_info_trigger);
+
+	chip->ufcs_info_trigger = kzalloc(sizeof(oplus_chg_track_trigger), GFP_KERNEL);
+	if (!chip->ufcs_info_trigger) {
+		chg_err("ufcs_info_trigger memery alloc fail\n");
+		mutex_unlock(&chip->ufcs_info_lock);
+		return -ENOMEM;
+	}
+
+	chip->ufcs_info_trigger->type_reason = TRACK_NOTIFY_TYPE_SOFTWARE_ABNORMAL;
+	chip->ufcs_info_trigger->flag_reason = TRACK_NOTIFY_FLAG_UFCS_ABNORMAL;
+
+	rc = oplus_mms_get_item_data(chip->monitor->err_topic, ERR_ITEM_UFCS, &data, false);
+	if (rc < 0) {
+		chg_err("get msg data error, rc=%d\n", rc);
+		kfree(chip->ufcs_info_trigger);
+		chip->ufcs_info_trigger = NULL;
+		mutex_unlock(&chip->ufcs_info_lock);
+		return rc;
+	}
+
+	index += snprintf(&(chip->ufcs_info_trigger->crux_info[index]), OPLUS_CHG_TRACK_CURX_INFO_LEN - index,
+			  "%s", data.strval);
+	oplus_chg_track_obtain_power_info(&(chip->ufcs_info_trigger->crux_info[index]),
+					  OPLUS_CHG_TRACK_CURX_INFO_LEN - index);
+
+	schedule_delayed_work(&chip->ufcs_info_trigger_work, 0);
 	chg_info("success\n");
 	return 0;
 }
@@ -6295,6 +6360,9 @@ static void oplus_chg_track_err_subs_callback(struct mms_subscribe *subs,
 			break;
 		case ERR_ITEM_WLS_INFO:
 			oplus_chg_track_upload_wls_info(track);
+			break;
+		case ERR_ITEM_UFCS:
+			oplus_chg_track_upload_ufcs_info(track);
 			break;
 		default:
 			break;

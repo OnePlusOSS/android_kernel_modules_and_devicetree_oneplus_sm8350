@@ -84,6 +84,7 @@
 #define BC_UFCS_TEST_MODE_TRUE		0X68
 #define BC_UFCS_TEST_MODE_FALSE		0X69
 #define BC_UFCS_POWER_READY		0X70
+#define BC_UFCS_HANDSHAKE_OK		0X71
 #endif
 
 #ifdef OPLUS_FEATURE_CHG_BASIC
@@ -191,6 +192,7 @@ enum battery_property_id {
 	BATT_AFI_UPDATE_DONE,
 	BATT_UI_SOC,
 	BATT_AP_FASTCHG_ALLOW,
+	BATT_SET_VOOC_CURVE_NUM,
 #endif
 	BATT_PROP_MAX,
 };
@@ -457,6 +459,8 @@ struct oplus_chg_iio {
 	struct iio_channel	*usbtemp_v_chan;
 	struct iio_channel	*usbtemp_sup_v_chan;
 	struct iio_channel	*subboard_temp_chan;
+	struct iio_channel	*batt_con_btb_chan;
+	struct iio_channel	*usb_con_btb_chan;
 };
 #endif
 
@@ -470,6 +474,7 @@ struct battery_chg_dev {
 	struct oplus_chg_ic_dev		*pps_ic;
 	struct oplus_mms		*vooc_topic;
 	struct oplus_chg_ic_dev		*ufcs_ic;
+	struct oplus_impedance_node	*input_imp_node;
 	struct oplus_mms		*common_topic;
 	struct oplus_mms		*pps_topic;
 	struct votable			*chg_disable_votable;
@@ -527,6 +532,7 @@ struct battery_chg_dev {
 	bool					hvdcp_disable;
 	bool				ufcs_test_mode;
 	bool				ufcs_power_ready;
+	bool				ufcs_handshake_ok;
 	struct delayed_work 	hvdcp_disable_work;
 	struct delayed_work 	pd_only_check_work;
 	bool					voocphy_err_check;
@@ -626,5 +632,6 @@ int oplus_adsp_voocphy_set_cool_down(int cool_down);
 int oplus_adsp_voocphy_get_bcc_max_current(void);
 int oplus_adsp_voocphy_get_bcc_min_current(void);
 int oplus_adsp_voocphy_get_atl_last_geat_current(void);
+int oplus_adsp_voocphy_set_curve_num(int number);
 #endif
 #endif /*__SM8350_CHARGER_H*/

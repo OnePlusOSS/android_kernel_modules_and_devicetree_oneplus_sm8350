@@ -62,6 +62,11 @@ oplus_chg_strategy_alloc(const char *name, unsigned char *buf, size_t size)
 		return NULL;
 	}
 
+	if (desc->strategy_alloc == NULL) {
+		chg_err("%s: strategy_alloc method not found\n", name);
+		return NULL;
+	}
+
 	strategy = desc->strategy_alloc(buf, size);
 	if (IS_ERR_OR_NULL(strategy)) {
 		chg_err("%s strategy alloc error, rc=%ld\n", name, PTR_ERR(strategy));
@@ -90,6 +95,11 @@ oplus_chg_strategy_alloc_by_node(const char *name, struct device_node *node)
 	desc = strategy_desc_find_by_name(name);
 	if (desc == NULL) {
 		chg_err("No strategy with name %s was found\n", name);
+		return NULL;
+	}
+
+	if (desc->strategy_alloc_by_node == NULL) {
+		chg_err("%s: strategy_alloc_by_node method not found\n", name);
 		return NULL;
 	}
 

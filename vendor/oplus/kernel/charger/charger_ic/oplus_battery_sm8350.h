@@ -424,6 +424,7 @@ struct battery_chg_dev {
 	struct delayed_work	reset_turn_on_chg_work;
 	struct delayed_work	get_real_chg_type_work;
 	struct delayed_work	plugin_irq_work;
+	struct delayed_work	update_input_current_work;
 	u32			oem_misc_ctl_data;
 	bool			oem_usb_online;
 	struct delayed_work	adsp_voocphy_err_work;

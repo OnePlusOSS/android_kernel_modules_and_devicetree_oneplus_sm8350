@@ -100,6 +100,7 @@
 #include "include/wakelock.h"
 #include "fp_driver.h"
 #include "include/fingerprint_event.h"
+#include "include/fp_netlink.h"
 #ifdef CONFIG_FP_INJECT_ENABLE
 #include "include/fp_fault_inject.h"
 #endif // CONFIG_FP_INJECT_ENABLE
@@ -118,6 +119,7 @@
 #define CLASS_NAME "oplus_fp"
 #define FP_INPUT_NAME "oplus_fp_input"
 #define N_SPI_MINORS 32 /* ... up to 256 */
+#define NETLINK_INIT_SUCCESS 0
 
 #if defined(MTK_PLATFORM) && LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
 #define VOID_REMOVE
@@ -157,6 +159,17 @@ int opticalfp_irq_handler_uff(struct fp_underscreen_info *tp_info);
 static int fp_check_panel_dt(struct fp_dev *fp_dev);
 static void fp_panel_notifier_callback(enum panel_event_notifier_tag tag, struct panel_event_notification *notification, void *client_data);
 #endif
+
+static void send_fingerprint_msg_by_type(int module, int event, void *data,
+                                                        unsigned int size)
+{
+    if (get_fp_driver_evt_type() == FP_DRIVER_NETLINK) {
+        fp_sendnlmsg(module, event, data, size);
+    }
+    else {
+        send_fingerprint_msg(module, event, data, size);
+    }
+}
 
 static int fp_panel_event_notifier_register(struct fp_dev *fp_dev)
 {
@@ -298,7 +311,7 @@ static int fp_read_irq_value(struct fp_dev *fp_dev) {
 static irqreturn_t fp_irq_handler(int irq, void *handle) {
     char msg = NETLINK_EVENT_IRQ;
     wake_lock_timeout(&fp_wakelock, msecs_to_jiffies(WAKELOCK_HOLD_IRQ_TIME));
-    send_fingerprint_msg(E_FP_SENSOR, msg, NULL, 0);
+    send_fingerprint_msg_by_type(E_FP_SENSOR, msg, NULL, 0);
     return IRQ_HANDLED;
 }
 
@@ -467,7 +480,7 @@ static long fp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
             irq_cleanup(fp_dev);
             fp_cleanup_device(fp_dev);
             pr_info("%s FP_IOC_REMOVE\n", __func__);
-            send_fingerprint_msg(E_FP_HAL, 0, NULL, 0);
+            send_fingerprint_msg_by_type(E_FP_HAL, 0, NULL, 0);
             break;
         case FP_IOC_WAKELOCK_TIMEOUT_ENABLE:
             pr_info("%s FP_IOC_WAKELOCK_TIMEOUT_ENABLE\n", __func__);
@@ -491,7 +504,7 @@ static long fp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
             break;
         case FP_IOC_STOP_WAIT_INTERRUPT_EVENT:
             pr_info("%s GF_IOC_STOP_WAIT_INTERRUPT_EVENT\n", __func__);
-            send_fingerprint_msg(E_FP_HAL, 0, NULL, 0);
+            send_fingerprint_msg_by_type(E_FP_HAL, 0, NULL, 0);
             break;
 #if IS_ENABLED(CONFIG_OPLUS_FEATURE_OLC)
         case FP_IOC_REPORT_OLC_EVENT:
@@ -524,6 +537,19 @@ static long fp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
         case FP_IOC_IRQ_GPIO_CTL_LOW:
             pr_info("%s FP_IOC_IRQ_GPIO_CTL_LOW\n", __func__);
             gpio_set_value(fp_dev->irq_gpio, 0);
+            break;
+        case FP_IOC_NETLINK_INIT:
+            pr_info("%s FP_IOC_NETLINK_INIT\n", __func__);
+            if (fp_netlink_init() == NETLINK_INIT_SUCCESS) {
+                set_fp_driver_evt_type(FP_DRIVER_NETLINK);
+            }
+            else {
+                set_fp_driver_evt_type(FP_DRIVER_INTERRUPT);
+            }
+            break;
+        case FP_IOC_RD_NETLINK_VALUE:
+            pr_info("%s FP_IOC_RD_NETLINK_VALUE\n", __func__);
+            retval = __put_user(get_fp_driver_evt_type(), (int32_t __user *)arg);
             break;
 #ifdef CONFIG_FP_INJECT_ENABLE
         case FP_IOC_FAULT_INJECT_BLOCK_MSG_CLEAN:
@@ -663,11 +689,11 @@ static void fp_panel_notifier_callback(enum panel_event_notifier_tag tag, struct
     switch (notification->notif_type) {
     case DRM_PANEL_EVENT_ONSCREENFINGERPRINT_UI_READY:
         pr_err("[%s] UI ready\n", __func__);
-        send_fingerprint_msg(E_FP_LCD, 1, NULL, 0);
+        send_fingerprint_msg_by_type(E_FP_LCD, 1, NULL, 0);
         break;
     case DRM_PANEL_EVENT_ONSCREENFINGERPRINT_UI_DISAPPEAR:
         pr_err("[%s] UI disappear\n", __func__);
-        send_fingerprint_msg(E_FP_LCD, 0, NULL, 0);
+        send_fingerprint_msg_by_type(E_FP_LCD, 0, NULL, 0);
         break;
     default:
         break;
@@ -744,7 +770,7 @@ static int oplus_fb_notifier_call(struct notifier_block *nb, unsigned long val, 
                 break;
         }
 
-        send_fingerprint_msg(E_FP_LCD, (int)op_mode, NULL, 0);
+        send_fingerprint_msg_by_type(E_FP_LCD, (int)op_mode, NULL, 0);
     }
 
     return NOTIFY_OK;
@@ -776,11 +802,11 @@ static int oplus_tp_notifier_call(struct notifier_block *nb, unsigned long val, 
             pr_info("%s touch down touchdown\n", __func__);
             msg = NETLINK_EVENT_TP_TOUCHDOWN;
             lasttouchmode = tp_info->touch_state;
-            send_fingerprint_msg(E_FP_TP, tp_info->touch_state, tp_info, sizeof(struct fp_underscreen_info));
+            send_fingerprint_msg_by_type(E_FP_TP, tp_info->touch_state, tp_info, sizeof(struct fp_underscreen_info));
         } else {
             pr_info("%s touch up touchup\n", __func__);
             msg = NETLINK_EVENT_TP_TOUCHUP;
-            send_fingerprint_msg(E_FP_TP, tp_info->touch_state, tp_info, sizeof(struct fp_underscreen_info));
+            send_fingerprint_msg_by_type(E_FP_TP, tp_info->touch_state, tp_info, sizeof(struct fp_underscreen_info));
             lasttouchmode = tp_info->touch_state;
         }
     }
@@ -816,12 +842,12 @@ int opticalfp_irq_handler_uff(struct fp_underscreen_info *tp_info) {
         pr_info("%s touch down \n", __func__);
         msg = NETLINK_EVENT_TP_TOUCHDOWN;
         lasttouchmode = tp_info->touch_state;
-        send_fingerprint_msg(E_FP_TP, tp_info->touch_state, tp_info, sizeof(struct fp_underscreen_info));
+        send_fingerprint_msg_by_type(E_FP_TP, tp_info->touch_state, tp_info, sizeof(struct fp_underscreen_info));
     } else {
         fp_disable_intr3(fp_dev);
         pr_info("%s touch up \n", __func__);
         msg = NETLINK_EVENT_TP_TOUCHUP;
-        send_fingerprint_msg(E_FP_TP, tp_info->touch_state, tp_info, sizeof(struct fp_underscreen_info));
+        send_fingerprint_msg_by_type(E_FP_TP, tp_info->touch_state, tp_info, sizeof(struct fp_underscreen_info));
         lasttouchmode = tp_info->touch_state;
     }
 
@@ -1033,6 +1059,10 @@ static int __init fp_init(void) {
 late_initcall(fp_init);
 
 static void __exit fp_exit(void) {
+    if (get_fp_driver_evt_type() == FP_DRIVER_NETLINK) {
+        pr_info("%s, NETLINK is enable\n", __func__);
+        fp_netlink_exit();
+    }
     oplus_driver_unregister(&fp_driver);
     class_destroy(fp_class);
     unregister_chrdev(SPIDEV_MAJOR, fp_driver.driver.name);

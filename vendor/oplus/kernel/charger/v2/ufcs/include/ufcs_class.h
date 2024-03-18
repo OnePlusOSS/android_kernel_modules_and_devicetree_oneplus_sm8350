@@ -8,6 +8,7 @@
 
 #include <linux/kernel.h>
 #include <linux/device.h>
+#include <linux/kfifo.h>
 
 struct ufcs_class;
 
@@ -42,38 +43,31 @@ enum ufcs_handshake_state {
 	UFCS_HS_FAIL,
 };
 
-struct ufcs_hardware_error {
-	bool dp_ovp;
-	bool dm_ovp;
-	bool temp_shutdown;
-	bool wtd_timeout;
-	bool hardreset;
-};
+enum ufcs_err_type {
+	UFCS_HW_ERR = 0,
+	UFCS_HW_ERR_DP_OVP = UFCS_HW_ERR,
+	UFCS_HW_ERR_DM_OVP,
+	UFCS_HW_ERR_TEMP_SHUTDOWN,
+	UFCS_HW_ERR_WTD_TIMEOUT,
+	UFCS_HW_ERR_HARD_RESET,
 
-struct ufcs_receive_error {
-	bool sent_cmp;
-	bool msg_trans_fail;
-	bool ack_rcv_timeout;
-	bool data_rdy;
-};
+	UFCS_RECV_ERR,
+	UFCS_RECV_ERR_SENT_CMP = UFCS_RECV_ERR,
+	UFCS_RECV_ERR_TRANS_FAIL,
+	UFCS_RECV_ERR_ACK_TIMEOUT,
+	UFCS_RECV_ERR_DATA_READY,
 
-struct ufcs_communication_error {
-	bool baud_error;
-	bool training_error;
-	bool start_fail;
-	bool byte_timeout;
-	bool rx_len_error;
-	bool rx_overflow;
-	bool crc_error;
-	bool stop_error;
-	bool baud_change;
-	bool bus_conflict;
-};
-
-struct ufcs_error_info {
-	struct ufcs_hardware_error hd_error;
-	struct ufcs_receive_error rcv_error;
-	struct ufcs_communication_error commu_error;
+	UFCS_COMM_ERR,
+	UFCS_COMM_ERR_BAUD_RATE_ERR = UFCS_COMM_ERR,
+	UFCS_COMM_ERR_TRAINING_ERR,
+	UFCS_COMM_ERR_START_FAIL,
+	UFCS_COMM_ERR_BYTE_TIMEOUT,
+	UFCS_COMM_ERR_RX_LEN_ERR,
+	UFCS_COMM_ERR_RX_OVERFLOW,
+	UFCS_COMM_ERR_CRC_ERR,
+	UFCS_COMM_ERR_STOP_ERR,
+	UFCS_COMM_ERR_BAUD_RATE_CHANGE,
+	UFCS_COMM_ERR_BUS_CONFLICT,
 };
 
 struct ufcs_config {
@@ -86,6 +80,8 @@ struct ufcs_config {
 
 struct ufcs_dev_ops;
 
+#define UFCS_ERR_FLAG_BUF_LEN	5
+#define UFCS_ERR_FLAG_BUF_SIZE	(UFCS_ERR_FLAG_BUF_LEN * sizeof(unsigned int))
 struct ufcs_dev {
 	struct device dev;
 	struct ufcs_dev_ops *ops;
@@ -93,7 +89,8 @@ struct ufcs_dev {
 	struct ufcs_class *class;
 
 	enum ufcs_handshake_state handshake_state;
-	struct ufcs_error_info err_info;
+	struct kfifo err_flag_fifo;
+	unsigned int err_flag_save;
 };
 
 struct ufcs_dev_ops {
@@ -123,6 +120,9 @@ int ufcs_cable_hard_reset(struct ufcs_dev *ufcs);
 int ufcs_force_exit(struct ufcs_dev *ufcs);
 int ufcs_intf_config_watchdog(struct ufcs_dev *ufcs, u16 time_ms);
 void ufcs_clr_error_flag(struct ufcs_dev *ufcs);
+int ufcs_set_error_flag(struct ufcs_dev *ufcs, unsigned int err_flag);
+int ufcs_get_error_flag(struct ufcs_dev *ufcs, unsigned int *err_flag);
+int ufcs_check_error_flag_all(struct ufcs_dev *ufcs, unsigned int *err_flag);
 int ufcs_intf_get_device_info(struct ufcs_dev *ufcs, u64 *dev_info);
 int ufcs_intf_get_error_info(struct ufcs_dev *ufcs, u64 *err_info);
 int ufcs_intf_get_source_info(struct ufcs_dev *ufcs, u64 *src_info);
@@ -134,6 +134,7 @@ int ufcs_intf_get_emark_info(struct ufcs_dev *ufcs, u64 *info);
 int ufcs_intf_get_power_info_ext(struct ufcs_dev *ufcs, u64 *pie, int num);
 bool ufcs_is_test_mode(struct ufcs_dev *ufcs);
 bool ufcs_is_vol_acc_test_mode(struct ufcs_dev *ufcs);
+bool ufcs_handshake_success(struct ufcs_dev *ufcs);
 
 #else /* CONFIG_OPLUS_UFCS_CLASS */
 
@@ -206,6 +207,24 @@ static inline void ufcs_clr_error_flag(struct ufcs_dev *ufcs)
 }
 
 __maybe_unused
+static inline int ufcs_set_error_flag(struct ufcs_dev *ufcs, unsigned int err_flag)
+{
+	return -EINVAL;
+}
+
+__maybe_unused
+static inline int ufcs_get_error_flag(struct ufcs_dev *ufcs, unsigned int *err_flag)
+{
+	return -EINVAL;
+}
+
+__maybe_unused
+static inline int ufcs_check_error_flag_all(struct ufcs_dev *ufcs, unsigned int *err_flag)
+{
+	return -EINVAL;
+}
+
+__maybe_unused
 static inline int ufcs_intf_get_device_info(struct ufcs_dev *ufcs, u64 *dev_info)
 {
 	return -EINVAL;
@@ -267,6 +286,12 @@ static inline bool ufcs_is_test_mode(struct ufcs_dev *ufcs)
 
 __maybe_unused
 static inline bool ufcs_is_vol_acc_test_mode(struct ufcs_dev *ufcs)
+{
+	return false;
+}
+
+__maybe_unused
+static inline bool ufcs_handshake_success(struct ufcs_dev *ufcs)
 {
 	return false;
 }

@@ -53,6 +53,8 @@
 #define OEM_MISC_CTL_DATA_PAIR(cmd, enable) ((enable ? 0x3 : 0x1) << cmd)
 #define FLASH_SCREEN_CTRL_OTA		0X01
 #define FLASH_SCREEN_CTRL_DTSI	0X02
+#define RESET_CURRENT_LIMIT_TIMES 3000
+#define RESET_CURRENT_LIMIT_VOLT 2000
 
 #define OPLUS_USBTEMP_HIGH_CURR 1
 #define OPLUS_USBTEMP_LOW_CURR 0
@@ -1948,8 +1950,18 @@ static void battery_chg_update_usb_type_work(struct work_struct *work)
 			printk(KERN_ERR "!!! test usb_psy_desc.type: [%d]\n", usb_psy_desc.type);
 		}
 	}
-	if (pst->prop[USB_ADAP_TYPE] != POWER_SUPPLY_USB_TYPE_UNKNOWN)
+	if (pst->prop[USB_ADAP_TYPE] != POWER_SUPPLY_USB_TYPE_UNKNOWN) {
 		oplus_chg_wake_update_work();
+		if (g_oplus_chip
+			&& oplus_chg_get_charger_voltage() >= 0
+			&& oplus_chg_get_charger_voltage() < RESET_CURRENT_LIMIT_VOLT
+			&& oplus_chg_get_voocphy_support() == ADSP_VOOCPHY
+			&& oplus_vooc_get_fastchg_dummy_started() == true) {
+				schedule_delayed_work(&bcdev->update_input_current_work,
+						round_jiffies_relative(msecs_to_jiffies(RESET_CURRENT_LIMIT_TIMES)));
+				pr_err("update_input_current_work\n");
+		}
+	}
 }
 
 #ifdef OPLUS_FEATURE_CHG_BASIC
@@ -2096,6 +2108,18 @@ static void oplus_plugin_irq_work(struct work_struct *work)
 	if (chip->support_abnormal_adapter) {
 		oplus_chg_check_break(bcdev->usb_online);
 	}
+}
+
+static void oplus_update_input_current_work(struct work_struct *work)
+{
+	struct oplus_chg_chip *chip = g_oplus_chip;
+
+	if (!chip) {
+		chg_err("chip is NULL!\n");
+		return;
+	}
+
+	chip->charger_type = POWER_SUPPLY_TYPE_UNKNOWN;
 }
 #endif
 
@@ -9839,6 +9863,7 @@ static int battery_chg_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&bcdev->reset_turn_on_chg_work, oplus_reset_turn_on_chg_work);
 	INIT_DELAYED_WORK(&bcdev->get_real_chg_type_work, oplus_get_real_chg_type_work);
 	INIT_DELAYED_WORK(&bcdev->plugin_irq_work, oplus_plugin_irq_work);
+	INIT_DELAYED_WORK(&bcdev->update_input_current_work, oplus_update_input_current_work);
 #endif
 #ifdef OPLUS_FEATURE_CHG_BASIC
 	INIT_DELAYED_WORK(&bcdev->vchg_trig_work, oplus_vchg_trig_work);

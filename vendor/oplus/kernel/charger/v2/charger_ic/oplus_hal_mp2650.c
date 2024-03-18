@@ -3639,19 +3639,6 @@ static int mp2650_suspend(struct i2c_client *client, pm_message_t mesg)
 static void mp2650_shutdown(struct i2c_client *client)
 {
 	mp2650_otg_disable();
-
-	/* suspend the charge to cause the fastchg adapter is reseted */
-	if (mp2650_get_vbus_voltage() > VBUS_VOLT_VALID_THRESHOLD) {
-		mp2650_config_interface(REG08_MP2650_ADDRESS,
-					REG08_MP2650_LEARN_EN_ENABLE,
-					REG08_MP2650_LEARN_EN_MASK);
-		msleep(1000);
-		mp2650_config_interface(REG08_MP2650_ADDRESS,
-					REG08_MP2650_LEARN_EN_DISABLE,
-					REG08_MP2650_LEARN_EN_MASK);
-		chg_info("suspend charger and unsuspend charger to reset the adapter!\n");
-	}
-
 	chg_info("shutdown\n");
 }
 

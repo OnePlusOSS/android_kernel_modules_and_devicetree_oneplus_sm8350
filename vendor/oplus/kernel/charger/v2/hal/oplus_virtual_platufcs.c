@@ -466,7 +466,7 @@ static int oplus_chg_vpu_smt_test(struct oplus_chg_ic_dev *ic_dev, char buf[], i
 static int oplus_chg_vpu_handshake(struct oplus_chg_ic_dev *ic_dev)
 {
 	struct oplus_virtual_ufcs_ic *vpu;
-	int rc;
+	int rc = 0;
 	int i;
 
 	if (ic_dev == NULL) {
@@ -492,7 +492,7 @@ static int oplus_chg_vpu_handshake(struct oplus_chg_ic_dev *ic_dev)
 static int oplus_chg_vpu_pdo_set(struct oplus_chg_ic_dev *ic_dev, int vol_mv, int curr_ma)
 {
 	struct oplus_virtual_ufcs_ic *vpu;
-	int rc;
+	int rc = 0;
 	int i;
 
 	if (ic_dev == NULL) {
@@ -519,7 +519,7 @@ static int oplus_chg_vpu_pdo_set(struct oplus_chg_ic_dev *ic_dev, int vol_mv, in
 static int oplus_chg_vpu_hard_reset(struct oplus_chg_ic_dev *ic_dev)
 {
 	struct oplus_virtual_ufcs_ic *vpu;
-	int rc;
+	int rc = 0;
 	int i;
 
 	if (ic_dev == NULL) {
@@ -545,7 +545,7 @@ static int oplus_chg_vpu_hard_reset(struct oplus_chg_ic_dev *ic_dev)
 static int oplus_chg_vpu_exit_ufcs_mode(struct oplus_chg_ic_dev *ic_dev)
 {
 	struct oplus_virtual_ufcs_ic *vpu;
-	int rc;
+	int rc = 0;
 	int i;
 
 	if (ic_dev == NULL) {
@@ -571,7 +571,7 @@ static int oplus_chg_vpu_exit_ufcs_mode(struct oplus_chg_ic_dev *ic_dev)
 static int oplus_chg_vpu_config_wd(struct oplus_chg_ic_dev *ic_dev, u16 time_ms)
 {
 	struct oplus_virtual_ufcs_ic *vpu;
-	int rc;
+	int rc = 0;
 	int i;
 
 	if (ic_dev == NULL) {
@@ -598,7 +598,7 @@ static int oplus_chg_vpu_config_wd(struct oplus_chg_ic_dev *ic_dev, u16 time_ms)
 static int oplus_chg_vpu_get_dev_info(struct oplus_chg_ic_dev *ic_dev, u64 *dev_info)
 {
 	struct oplus_virtual_ufcs_ic *vpu;
-	int rc;
+	int rc = 0;
 	int i;
 
 	if (ic_dev == NULL) {
@@ -628,7 +628,7 @@ static int oplus_chg_vpu_get_dev_info(struct oplus_chg_ic_dev *ic_dev, u64 *dev_
 static int oplus_chg_vpu_get_err_info(struct oplus_chg_ic_dev *ic_dev, u64 *err_info)
 {
 	struct oplus_virtual_ufcs_ic *vpu;
-	int rc;
+	int rc = 0;
 	int i;
 
 	if (ic_dev == NULL) {
@@ -658,7 +658,7 @@ static int oplus_chg_vpu_get_err_info(struct oplus_chg_ic_dev *ic_dev, u64 *err_
 static int oplus_chg_vpu_get_src_info(struct oplus_chg_ic_dev *ic_dev, u64 *src_info)
 {
 	struct oplus_virtual_ufcs_ic *vpu;
-	int rc;
+	int rc = 0;
 	int i;
 
 	if (ic_dev == NULL) {
@@ -688,7 +688,7 @@ static int oplus_chg_vpu_get_src_info(struct oplus_chg_ic_dev *ic_dev, u64 *src_
 static int oplus_chg_vpu_get_cable_info(struct oplus_chg_ic_dev *ic_dev, u64 *cable_info)
 {
 	struct oplus_virtual_ufcs_ic *vpu;
-	int rc;
+	int rc = 0;
 	int i;
 
 	if (ic_dev == NULL) {
@@ -718,7 +718,7 @@ static int oplus_chg_vpu_get_cable_info(struct oplus_chg_ic_dev *ic_dev, u64 *ca
 static int oplus_chg_vpu_get_pdo_info(struct oplus_chg_ic_dev *ic_dev, u64 *pdo, int num)
 {
 	struct oplus_virtual_ufcs_ic *vpu;
-	int rc;
+	int rc = 0;
 	int i;
 
 	if (ic_dev == NULL) {
@@ -749,7 +749,7 @@ static int oplus_chg_vpu_verify_adapter(struct oplus_chg_ic_dev *ic_dev,
 	u8 key_index, u8 *auth_data, u8 data_len)
 {
 	struct oplus_virtual_ufcs_ic *vpu;
-	int rc;
+	int rc = 0;
 	int i;
 
 	if (ic_dev == NULL) {
@@ -779,7 +779,7 @@ static int oplus_chg_vpu_get_power_change_info(
 	struct oplus_chg_ic_dev *ic_dev, u32 *pwr_change_info, int num)
 {
 	struct oplus_virtual_ufcs_ic *vpu;
-	int rc;
+	int rc = 0;
 	int i;
 
 	if (ic_dev == NULL) {
@@ -809,7 +809,7 @@ static int oplus_chg_vpu_get_power_change_info(
 static int oplus_chg_vpu_get_emark_info(struct oplus_chg_ic_dev *ic_dev, u64 *info)
 {
 	struct oplus_virtual_ufcs_ic *vpu;
-	int rc;
+	int rc = 0;
 	int i;
 
 	if (ic_dev == NULL) {
@@ -840,7 +840,7 @@ static int oplus_chg_vpu_get_power_info_ext(
 	struct oplus_chg_ic_dev *ic_dev, u64 *info, int num)
 {
 	struct oplus_virtual_ufcs_ic *vpu;
-	int rc;
+	int rc = 0;
 	int i;
 
 	if (ic_dev == NULL) {
@@ -870,7 +870,7 @@ static int oplus_chg_vpu_get_power_info_ext(
 static int oplus_chg_vpu_is_test_mode(struct oplus_chg_ic_dev *ic_dev, bool *en)
 {
 	struct oplus_virtual_ufcs_ic *vpu;
-	int rc;
+	int rc = 0;
 	int i;
 
 	if (ic_dev == NULL) {
@@ -897,7 +897,7 @@ static int oplus_chg_vpu_is_test_mode(struct oplus_chg_ic_dev *ic_dev, bool *en)
 static int oplus_chg_vpu_is_vol_acc_test_mode(struct oplus_chg_ic_dev *ic_dev, bool *en)
 {
 	struct oplus_virtual_ufcs_ic *vpu;
-	int rc;
+	int rc = 0;
 	int i;
 
 	if (ic_dev == NULL) {

@@ -183,6 +183,20 @@ oplus_vooc_set_switch_mode(struct oplus_chg_ic_dev *vooc_ic,
 	g_dpdm_switch_mode = switch_mode;
 }
 
+void oplus_vooc_set_shutdown_mode(struct oplus_chg_ic_dev *vooc_ic)
+{
+	int rc;
+
+	if (vooc_ic == NULL) {
+		chg_err("vooc_ic is NULL\n");
+		return;
+	}
+
+	rc = oplus_chg_ic_func(vooc_ic, OPLUS_IC_FUNC_VOOC_SET_SHUTDOW_SWITCH_MODE);
+	if (rc < 0)
+		chg_err("shutdown switch to normal fail\n");
+}
+
 void oplus_vooc_eint_register(struct oplus_chg_ic_dev *vooc_ic)
 {
 	int rc;

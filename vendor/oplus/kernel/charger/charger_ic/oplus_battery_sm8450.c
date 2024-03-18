@@ -8115,6 +8115,7 @@ static void oplus_plugin_irq_work(struct work_struct *work)
 		bcdev->usb_in_status = 1;
 	} else {
 		bcdev->usb_in_status = 0;
+		bcdev->pd_svooc = false;
 	}
 	usb_plugin_status = pst->prop[USB_IN_STATUS] & 0xff;
 
@@ -8196,7 +8197,9 @@ static void oplus_plugin_irq_work(struct work_struct *work)
 					oplus_chg_wake_update_work();
 				} else if (oplus_vooc_get_fastchg_started() == false) {
 					printk(KERN_ERR "[%s]: plug out fastchg_to_normal/warm/dummy or not vooc\n", __func__);
-					cancel_delayed_work_sync(&chip->update_work);
+					if (oplus_switching_support_parallel_chg()) {
+						cancel_delayed_work_sync(&chip->update_work);
+					}
 					oplus_vooc_reset_fastchg_after_usbout();
 					smbchg_set_chargerid_switch_val(0);
 					chip->chargerid_volt = 0;
@@ -8474,7 +8477,6 @@ int sm8450_get_ccdetect_online(void)
 	} else {
 		online = oplus_get_otg_online_with_switch_scheme();
 	}
-	chg_err("online:%d!\n", online);
 	return online;
 }
 
@@ -9440,6 +9442,42 @@ u32 oplus_chg_get_pps_status(void)
 	return pst->prop[USB_GET_PPS_STATUS];
 }
 
+#if IS_ENABLED(CONFIG_OPLUS_CHG_TEST_KIT)
+static int oplus_check_cc_mode(void)
+{
+	int rc = 0;
+	struct battery_chg_dev *bcdev = NULL;
+	struct oplus_chg_chip *chip = g_oplus_chip;
+	struct psy_state *pst = NULL;
+
+	if (!chip) {
+		chg_err("[OPLUS_CHG][%s]: chip not ready!\n", __func__);
+		return MODE_DEFAULT;
+	}
+
+	bcdev = chip->pmic_spmi.bcdev_chip;
+	pst = &bcdev->psy_list[PSY_TYPE_USB];
+
+	rc = read_property_id(bcdev, pst, USB_TYPEC_MODE);
+	if (rc < 0) {
+		chg_err("[OPLUS_CHG][%s]: Couldn't read 0x2b44 rc=%d\n", __func__, rc);
+		return MODE_DEFAULT;
+	}
+
+	chg_err("[OPLUS_CHG][%s]: reg0x2b44[0x%x]\n", __func__, pst->prop[USB_TYPEC_MODE]);
+
+	if (pst->prop[USB_TYPEC_MODE] == 0)
+		return MODE_SINK;
+	else
+		return MODE_SRC;
+}
+#else
+static int oplus_check_cc_mode(void)
+{
+	return -ENOTSUPP;
+}
+#endif
+
 int oplus_chg_set_pps_config(int vbus_mv, int ibus_ma)
 {
 	int rc1, rc2 = 0;
@@ -9850,6 +9888,7 @@ struct oplus_chg_operations  battery_chg_ops = {
 	.pdo_5v = oplus_chg_set_pdo_5v,
 	.get_subboard_temp = oplus_get_subboard_temp,
 	.get_ccdetect_online = sm8450_get_ccdetect_online,
+	.check_cc_mode = oplus_check_cc_mode,
 };
 #endif /* OPLUS_FEATURE_CHG_BASIC */
 
@@ -12119,6 +12158,11 @@ static int battery_chg_remove(struct platform_device *pdev)
 		pr_err("Error unregistering from pmic_glink, rc=%d\n", rc);
 		return rc;
 	}
+
+#if IS_ENABLED(CONFIG_OPLUS_CHG_TEST_KIT)
+	oplus_test_kit_unregister();
+#endif
+
 	return 0;
 }
 

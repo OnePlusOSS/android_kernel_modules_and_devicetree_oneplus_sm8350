@@ -955,7 +955,8 @@ static int oplus_chg_va_set_switch_mode(struct oplus_chg_ic_dev *ic_dev,
 err:
 	if (!va->use_dpdm_switch_ic) {
 		pinctrl_select_state(va->gpio.pinctrl, va->gpio.asic_switch_normal);
-		pinctrl_select_state(va->gpio.pinctrl, va->gpio.gpio_switch_ctrl_ap);
+		if (!IS_ERR_OR_NULL(va->gpio.gpio_switch_ctrl_ap))
+			pinctrl_select_state(va->gpio.pinctrl, va->gpio.gpio_switch_ctrl_ap);
 	} else {
 		oplus_chg_va_switch_to_normal(va);
 	}
@@ -1140,6 +1141,46 @@ static int oplus_chg_va_get_curve_current(struct oplus_chg_ic_dev *ic_dev, int *
 	return 0;
 }
 
+static bool oplus_vooc_get_fastchg_started(void)
+{
+	bool fastchg_started_status = false;
+	struct oplus_mms *vooc_topic;
+	union mms_msg_data data = { 0 };
+	int rc = 0;
+
+	vooc_topic = oplus_mms_get_by_name("vooc");
+	if (!vooc_topic)
+		return false;
+
+	rc = oplus_mms_get_item_data(vooc_topic, VOOC_ITEM_VOOC_STARTED, &data, true);
+	if (!rc)
+		fastchg_started_status = !!data.intval;
+
+	chg_info("get fastchg started status = %d\n", fastchg_started_status);
+	return fastchg_started_status;
+}
+
+static int oplus_chg_va_set_shutdown_switch_mode(struct oplus_chg_ic_dev *ic_dev)
+{
+	int rc = 0;
+
+	if (!ic_dev) {
+		chg_err("oplus_chg_ic_dev is NULL");
+		return -ENODEV;
+	}
+
+	chg_info("enter\n");
+	rc = oplus_chg_va_set_switch_mode(ic_dev, VOOC_SWITCH_MODE_NORMAL);
+	msleep(10);
+	if (oplus_vooc_get_fastchg_started() == true) {
+		rc = oplus_chg_va_set_clock_sleep(ic_dev);
+		msleep(10);
+		rc = oplus_chg_va_reset_active(ic_dev);
+	}
+
+	return rc;
+}
+
 static void *oplus_chg_va_get_func(struct oplus_chg_ic_dev *ic_dev,
 				   enum oplus_chg_ic_func func_id)
 {
@@ -1279,6 +1320,10 @@ static void *oplus_chg_va_get_func(struct oplus_chg_ic_dev *ic_dev,
 	case OPLUS_IC_FUNC_VOOC_GET_CURVE_CURR:
 		func = OPLUS_CHG_IC_FUNC_CHECK(OPLUS_IC_FUNC_VOOC_GET_CURVE_CURR,
 					       oplus_chg_va_get_curve_current);
+		break;
+	case OPLUS_IC_FUNC_VOOC_SET_SHUTDOW_SWITCH_MODE:
+		func = OPLUS_CHG_IC_FUNC_CHECK(OPLUS_IC_FUNC_VOOC_SET_SHUTDOW_SWITCH_MODE,
+					       oplus_chg_va_set_shutdown_switch_mode);
 		break;
 	default:
 		chg_err("this func(=%d) is not supported\n", func_id);
@@ -1824,40 +1869,6 @@ static int oplus_virtual_asic_remove(struct platform_device *pdev)
 	return 0;
 }
 
-
-static bool oplus_vooc_get_fastchg_started(void)
-{
-	bool fastchg_started_status = false;
-	struct oplus_mms *vooc_topic;
-	union mms_msg_data data = { 0 };
-	int rc = 0;
-
-	vooc_topic = oplus_mms_get_by_name("vooc");
-	if (!vooc_topic)
-		return false;
-
-	rc = oplus_mms_get_item_data(vooc_topic, VOOC_ITEM_VOOC_STARTED, &data, true);
-	if (!rc)
-		fastchg_started_status = !!data.intval;
-
-	chg_info("get fastchg started status = %d\n", fastchg_started_status);
-	return fastchg_started_status;
-}
-
-static void oplus_virtual_asic_shutdown(struct platform_device *pdev)
-{
-	struct oplus_virtual_asic_ic *chip = platform_get_drvdata(pdev);
-
-	chg_info("enter\n");
-	oplus_chg_va_set_switch_mode(chip->ic_dev, VOOC_SWITCH_MODE_NORMAL);
-	msleep(10);
-	if (oplus_vooc_get_fastchg_started() == true) {
-		oplus_chg_va_set_clock_sleep(chip->ic_dev);
-		msleep(10);
-		oplus_chg_va_reset_active(chip->ic_dev);
-	}
-}
-
 static const struct of_device_id oplus_virtual_asic_match[] = {
 	{ .compatible = "oplus,virtual_asic" },
 	{},
@@ -1871,7 +1882,6 @@ static struct platform_driver oplus_virtual_asic_driver = {
 	},
 	.probe		= oplus_virtual_asic_probe,
 	.remove		= oplus_virtual_asic_remove,
-	.shutdown	= oplus_virtual_asic_shutdown,
 };
 
 static __init int oplus_virtual_asic_init(void)

@@ -21,7 +21,7 @@
 static int ufcs_pe_test_ctrl_request_handle(struct ufcs_class *class, enum ufcs_ctrl_msg_type type)
 {
 	u64 pdo[UFCS_OUTPUT_MODE_MAX];
-	u64 src_info;
+	u64 tmp_data;
 	int rc;
 
 	switch (type) {
@@ -31,9 +31,24 @@ static int ufcs_pe_test_ctrl_request_handle(struct ufcs_class *class, enum ufcs_
 			ufcs_err("test mode get pdo info error, rc=%d\n", rc);
 		break;
 	case CTRL_MSG_GET_SOURCE_INFO:
-		rc = ufcs_get_source_info(class, &src_info);
+		rc = ufcs_get_source_info(class, &tmp_data);
 		if (rc < 0)
 			ufcs_err("test mode get src info error, rc=%d\n", rc);
+		break;
+	case CTRL_MSG_GET_CABLE_INFO:
+		rc = ufcs_get_cable_info(class, &tmp_data);
+		if (rc < 0)
+			ufcs_err("test mode get cable info error, rc=%d\n", rc);
+		break;
+	case CTRL_MSG_GET_DEVICE_INFO:
+		rc = ufcs_get_device_info(class, &tmp_data);
+		if (rc < 0)
+			ufcs_err("test mode get device info error, rc=%d\n", rc);
+		break;
+	case CTRL_MSG_GET_ERROR_INFO:
+		rc = ufcs_get_error_info(class, &tmp_data);
+		if (rc < 0)
+			ufcs_err("test mode get error info error, rc=%d\n", rc);
 		break;
 	default:
 		ufcs_err("Unsupported test mode ctrl msg, type=%u\n", type);
@@ -66,7 +81,7 @@ static int ufcs_pe_test_data_request_handle(struct ufcs_class *class, enum ufcs_
 	return rc;
 }
 
-void ufcs_pe_test_handle_work(struct kthread_work *work)
+void ufcs_pe_test_handle_work(struct work_struct *work)
 {
 	struct ufcs_class *class = container_of(work, struct ufcs_class, test_handle_work);
 	u16 request;
@@ -79,12 +94,12 @@ void ufcs_pe_test_handle_work(struct kthread_work *work)
 
 	if (class->test_mode != enable_test_mode) {
 		class->test_mode = enable_test_mode;
-		ufcs_send_state(class, UFCS_NOTIFY_TEST_MODE_CHANGED);
+		ufcs_send_state(UFCS_NOTIFY_TEST_MODE_CHANGED, NULL);
 		ufcs_info("%s test mode\n", enable_test_mode ? "enable" : "disable");
 	}
 	if (class->vol_acc_test != enable_vol_acc_test) {
 		class->vol_acc_test = enable_vol_acc_test;
-		ufcs_send_state(class, UFCS_NOTIFY_VOL_ACC_TEST_MODE_CHANGED);
+		ufcs_send_state(UFCS_NOTIFY_VOL_ACC_TEST_MODE_CHANGED, NULL);
 		ufcs_info("%s voltage acc test mode\n", enable_vol_acc_test ? "enable" : "disable");
 	}
 
@@ -133,5 +148,5 @@ void ufcs_pe_test_request_handle(struct ufcs_class *class, u16 request)
 	}
 
 	class->test_request = request;
-	kthread_queue_work(class->worker, &class->test_handle_work);
+	schedule_work(&class->test_handle_work);
 }

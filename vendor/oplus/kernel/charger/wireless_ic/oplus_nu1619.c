@@ -105,7 +105,13 @@ static ATOMIC_NOTIFIER_HEAD(comm_mutual_notifier_v1);
 
 static int __init __attribute__((unused)) nu1619_backcover_color_info_init(char *str)
 {
-	sscanf(str, "%d", &backcover_color_info);
+	int rc;
+
+	rc = sscanf(str, "%d", &backcover_color_info);
+	if (rc < 0) {
+		chg_err("read input string error, rc:%d\n", rc);
+		return rc;
+	}
 	chg_err("backcover_color_info[%d]\n", backcover_color_info);
 	return 0;
 }

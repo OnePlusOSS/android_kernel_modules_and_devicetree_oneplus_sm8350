@@ -9658,6 +9658,7 @@ static void oplus_plugin_irq_work(struct work_struct *work)
 		status_usb_in = true;
 	} else {
 		status_usb_in = false;
+		bcdev->pd_svooc = false;
 	}
 	usb_plugin_status = pst->prop[USB_IN_STATUS] & 0xff;
 	cid_status = oplus_get_otg_online_status_with_cid_scheme();

@@ -14,6 +14,7 @@ enum err_topic_item {
 	ERR_ITEM_SLOW_CHG,
 	ERR_ITEM_CHG_CYCLE,
 	ERR_ITEM_WLS_INFO,
+	ERR_ITEM_UFCS,
 };
 
 enum oplus_chg_track_mcu_voocphy_break_code {
