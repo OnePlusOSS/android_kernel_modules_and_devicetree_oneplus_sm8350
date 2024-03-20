@@ -3952,9 +3952,10 @@ static void mtk_tcpc_set_otg_enable(struct oplus_chg_ic_dev *ic_dev, bool en)
 }
 
 #define OPLUS_SVID 0x22D9
+#define TCPM_SUCCESS 0
 int oplus_get_adapter_svid(void)
 {
-	int i = 0;
+	int i = 0, ret;
 	uint32_t vdos[VDO_MAX_NR] = {0};
 	struct tcpc_device *tcpc_dev = tcpc_dev_get_by_name("type_c_port0");
 	struct tcpm_svid_list svid_list = {0, {0}};
@@ -3980,6 +3981,37 @@ int oplus_get_adapter_svid(void)
 		chg_err("match svid and this is oplus adapter 11\n");
 	}
 
+	if (!pinfo->pd_svooc) {
+		chg_err("get pd_svooc svid fail, retry to discover id/svid\n");
+		ret = tcpm_dpm_vdm_discover_id(tcpc_dev, NULL);
+		if (ret != TCPM_SUCCESS) {
+			chg_err("Failed to discover id\n");
+			goto trigger_irq;
+		}
+		ret = tcpm_dpm_vdm_discover_svid(tcpc_dev, NULL);
+		if (ret != TCPM_SUCCESS) {
+			chg_err("Failed to discover id\n");
+			goto trigger_irq;
+		}
+
+		tcpm_inquire_pd_partner_svids(tcpc_dev, &svid_list);
+		for (i = 0; i < svid_list.cnt; i++) {
+			chg_err("svid[%d] = 0x%x\n", i, svid_list.svids[i]);
+			if (svid_list.svids[i] == OPLUS_SVID) {
+				pinfo->pd_svooc = true;
+				chg_err("retry get match svid and this is oplus adapter\n");
+				break;
+			}
+		}
+
+		tcpm_inquire_pd_partner_inform(tcpc_dev, vdos);
+		if ((vdos[0] & 0xFFFF) == OPLUS_SVID) {
+			pinfo->pd_svooc = true;
+			chg_err("retry get match svid and this is oplus adapter 11\n");
+		}
+	}
+
+trigger_irq:
 	oplus_chg_ic_virq_trigger(pinfo->ic_dev, OPLUS_IC_VIRQ_SVID);
 
 	return 0;

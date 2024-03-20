@@ -46,6 +46,7 @@ struct oplus_gki_device {
 	struct votable *fv_votable;
 	struct votable *vooc_curr_votable;
 	struct votable *ufcs_curr_votable;
+	struct votable *pps_curr_votable;
 
 	struct delayed_work status_keep_clean_work;
 	struct delayed_work status_keep_delay_unlock_work;
@@ -123,6 +124,14 @@ is_ufcs_curr_votable_available(struct oplus_gki_device *chip)
 	if (!chip->ufcs_curr_votable)
 		chip->ufcs_curr_votable = find_votable("UFCS_CURR");
 	return !!chip->ufcs_curr_votable;
+}
+
+__maybe_unused static bool
+is_pps_curr_votable_available(struct oplus_gki_device *chip)
+{
+	if (!chip->pps_curr_votable)
+		chip->pps_curr_votable = find_votable("PPS_CURR");
+	return !!chip->pps_curr_votable;
 }
 
 static bool is_main_gauge_topic_available(struct oplus_gki_device *chip)
@@ -462,9 +471,11 @@ static int battery_psy_get_prop(struct power_supply *psy,
 {
 	struct oplus_gki_device *chip = power_supply_get_drvdata(psy);
 	union mms_msg_data data = { 0 };
+	struct power_supply *wlspsy = NULL;
+	union power_supply_propval wlsval = { 0 };
 	int rc = 0;
 	int bms_temp_compensation;
-	static int pre_batt_status;
+	static int pre_batt_status = 0;
 	unsigned long cur_chg_time = 0;
 
 	if (chip->gauge_topic == NULL)
@@ -478,8 +489,17 @@ static int battery_psy_get_prop(struct power_supply *psy,
 			pval->intval = pre_batt_status;
 		} else {
 			pval->intval = chip->batt_status;
-			if  (chip->wls_online)
+			if  (chip->wls_online) {
 				pre_batt_status = pval->intval;
+			} else if (pre_batt_status) {
+				wlspsy = power_supply_get_by_name("wireless");
+				if (wlspsy)
+					power_supply_get_property(wlspsy, POWER_SUPPLY_PROP_ONLINE, &wlsval);
+				if (wlsval.intval)
+					pval->intval = pre_batt_status;
+				else
+					pre_batt_status = 0;
+			}
 		}
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
@@ -655,12 +675,16 @@ static int battery_psy_set_prop(struct power_supply *psy,
 					vote(chip->vooc_curr_votable, HIDL_VOTER, false, 0, false);
 				if (is_ufcs_curr_votable_available(chip))
 					vote(chip->ufcs_curr_votable, HIDL_VOTER, false, 0, false);
+				if (is_pps_curr_votable_available(chip))
+					vote(chip->pps_curr_votable, HIDL_VOTER, false, 0, false);
 			} else {
 				vote(chip->wired_icl_votable, HIDL_VOTER, (val == 0) ? false : true, val, true);
 				if (is_vooc_curr_votable_available(chip))
 					vote(chip->vooc_curr_votable, HIDL_VOTER, (val == 0) ? false : true, val, false);
 				if (is_ufcs_curr_votable_available(chip))
 					vote(chip->ufcs_curr_votable, HIDL_VOTER, (val == 0) ? false : true, val, false);
+				if (is_pps_curr_votable_available(chip))
+					vote(chip->pps_curr_votable, HIDL_VOTER, (val == 0) ? false : true, val, false);
 			}
 		} else {
 			rc = -ENOTSUPP;
@@ -1196,13 +1220,16 @@ static void oplus_gki_comm_subs_callback(struct mms_subscribe *subs,
 			oplus_mms_get_item_data(chip->comm_topic, id, &data,
 						false);
 			chip->led_on = data.intval;
-			if (chip->led_on &&
-			    is_vooc_curr_votable_available(chip))
-				vote(chip->vooc_curr_votable, HIDL_VOTER, false, 0, false);
+			if (chip->led_on) {
+				if (is_vooc_curr_votable_available(chip))
+					vote(chip->vooc_curr_votable, HIDL_VOTER, false, 0, false);
 
-			if (chip->led_on &&
-			    is_ufcs_curr_votable_available(chip))
-				vote(chip->ufcs_curr_votable, HIDL_VOTER, false, 0, false);
+				if (is_ufcs_curr_votable_available(chip))
+					vote(chip->ufcs_curr_votable, HIDL_VOTER, false, 0, false);
+
+				if (is_pps_curr_votable_available(chip))
+					vote(chip->pps_curr_votable, HIDL_VOTER, false, 0, false);
+			}
 			break;
 		case COMM_ITEM_CHARGING_DISABLE:
 		case COMM_ITEM_CHARGE_SUSPEND:

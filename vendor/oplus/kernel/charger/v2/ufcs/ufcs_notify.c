@@ -28,7 +28,7 @@ void ufcs_unreg_event_notifier(struct notifier_block *nb)
 }
 EXPORT_SYMBOL_GPL(ufcs_unreg_event_notifier);
 
-void ufcs_send_state(struct ufcs_class *class, enum ufcs_notify_state state)
+void ufcs_send_state(enum ufcs_notify_state state, void *v)
 {
-	atomic_notifier_call_chain(&ufcs_event_notifier, state, class);
+	atomic_notifier_call_chain(&ufcs_event_notifier, state, v);
 }

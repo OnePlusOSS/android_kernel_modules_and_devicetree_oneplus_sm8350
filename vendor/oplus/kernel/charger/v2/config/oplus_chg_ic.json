@@ -79,7 +79,8 @@
                 "OPLUS_IC_ERR_CC_LOGIC",
                 "OPLUS_IC_ERR_PARALLEL_UNBALANCE",
                 "OPLUS_IC_ERR_MOS_ERROR",
-                "OPLUS_IC_ERR_OFFLINE"
+                "OPLUS_IC_ERR_OFFLINE",
+                "OPLUS_IC_ERR_UFCS"
             ]
         },
         {
@@ -105,6 +106,14 @@
                 "TRACK_MOS_I2C_ERROR",
                 "TRACK_MOS_OPEN_ERROR",
                 "TRACK_MOS_VBAT_GAP_BIG"
+            ]
+        },
+        {
+            "name": "oplus_chg_ic_ufcs_err",
+            "list": [
+                "UFCS_ERR_READ",
+                "UFCS_ERR_WRITE",
+                "UFCS_ERR_REG_DUMP"
             ]
         }
     ],

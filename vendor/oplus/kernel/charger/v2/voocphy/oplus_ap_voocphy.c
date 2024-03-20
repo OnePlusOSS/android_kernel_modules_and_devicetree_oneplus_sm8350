@@ -5107,10 +5107,12 @@ static int oplus_voocphy_vol_event_handle(struct device *dev, unsigned long data
 			    = oplus_voocphy_set_fastchg_current(chip);
 
 		//notify full at some condition
-		if ((chip->batt_temp_plugin == VOOCPHY_BATT_TEMP_LITTLE_COLD			/*0-5 chg to 4430mV*/
+		if ((chip->batt_temp_plugin == VOOCPHY_BATT_TEMP_LITTLE_COLD				/*0-5 chg to 4430mV*/
 		     && chip->gauge_vbatt > chip->vooc_little_cold_full_voltage)
 		    || (chip->batt_temp_plugin == VOOCPHY_BATT_TEMP_COOL				/*5-12 chg to 4430mV*/
 		        && chip->gauge_vbatt > chip->vooc_cool_full_voltage)
+		    || (chip->batt_temp_plugin == VOOCPHY_BATT_TEMP_LITTLE_COOL				/*12-16 chg to 4430mV*/
+		        && chip->gauge_vbatt > chip->vooc_little_cool_full_voltage)
 		    || (chip->batt_temp_plugin == VOOCPHY_BATT_TEMP_WARM				/*43-52 chg to 4130mV*/
 		    	&& chip->vooc_warm_full_voltage != -EINVAL
 		        && chip->gauge_vbatt > chip->vooc_warm_full_voltage)
@@ -6051,6 +6053,13 @@ static int oplus_voocphy_parse_batt_curves(struct oplus_voocphy_manager *chip)
 	if (rc < 0) {
 		voocphy_info("parse vooc_ntime_full_voltage failed, rc=%d\n", rc);
 		chip->vooc_ntime_full_voltage = BAT_FULL_NTIME_THD;
+	}
+
+	rc = of_property_read_u32(node, "oplus_spec,vooc_little_cool_full_voltage",
+	                                &chip->vooc_little_cool_full_voltage);
+	if (rc < 0) {
+		voocphy_info("parse vooc_little_cool_full_voltage failed, rc=%d\n", rc);
+		chip->vooc_little_cool_full_voltage = chip->vooc_1time_full_voltage;
 	}
 
 	rc = of_property_read_u32(node, "oplus_spec,low_curr_full_t1",

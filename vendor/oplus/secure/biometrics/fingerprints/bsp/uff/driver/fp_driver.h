@@ -151,6 +151,8 @@ struct fp_key {
 #define FP_IOC_RESET_GPIO_CTL_HIGH _IO(FP_IOC_MAGIC, 26)
 #define FP_IOC_IRQ_GPIO_CTL_HIGH _IO(FP_IOC_MAGIC, 27)
 #define FP_IOC_IRQ_GPIO_CTL_LOW _IO(FP_IOC_MAGIC, 28)
+#define FP_IOC_NETLINK_INIT _IO(FP_IOC_MAGIC, 29)
+#define FP_IOC_RD_NETLINK_VALUE _IO(FP_IOC_MAGIC, 30)
 
 #define FP_IOC_FAULT_INJECT_BLOCK_MSG_CLEAN   _IO(FP_IOC_MAGIC, 401)
 #define FP_IOC_FAULT_INJECT_BLOCK_MSG_UP      _IO(FP_IOC_MAGIC, 402)
@@ -163,11 +165,6 @@ struct fp_key {
 #define FP_NET_EVENT_FB_BLACK 2
 #define FP_NET_EVENT_FB_UNBLACK 3
 #define NETLINKROUTE 25
-
-
-
-/************************************************/
-
 /************************************************/
 struct fp_dev {
     dev_t            devt;
@@ -231,10 +228,6 @@ int fp_hw_reset(struct fp_dev *fp_dev, unsigned int delay_ms);
 int fp_reset_gpio_ctl(struct fp_dev *fp_dev, uint32_t value);
 int fp_irq_num(struct fp_dev *fp_dev);
 int fp_cs_ctl(struct fp_dev *fp_dev, uint32_t value);
-
-// netlink funciton
-int  fp_netlink_init(void);
-void fp_netlink_exit(void);
 
 // feature
 void fp_cleanup_pwr_list(struct fp_dev *fp_dev);

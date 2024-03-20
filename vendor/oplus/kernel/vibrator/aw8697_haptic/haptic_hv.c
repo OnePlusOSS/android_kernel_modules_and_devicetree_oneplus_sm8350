@@ -3960,12 +3960,12 @@ static void ram_load(const struct firmware *cont, void *context)
 	/* aw ram update */
 	awinic_fw = kzalloc(cont->size + sizeof(int), GFP_KERNEL);
 	if (!awinic_fw) {
-		release_firmware(cont);
-		aw_dev_err("%s: Error allocating memory\n",
-			   __func__);
 #ifdef CONFIG_HAPTIC_FEEDBACK_MODULE
 		(void)oplus_haptic_track_mem_alloc_err(HAPTIC_MEM_ALLOC_TRACK, cont->size + sizeof(int), __func__);
 #endif
+		release_firmware(cont);
+		aw_dev_err("%s: Error allocating memory\n",
+			   __func__);
 		return;
 	}
 	awinic_fw->len = cont->size;

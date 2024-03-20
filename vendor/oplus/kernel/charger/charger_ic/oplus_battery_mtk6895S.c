@@ -2460,8 +2460,7 @@ static ssize_t sc_etime_store(
 			val = 0;
 		}
 
-		if (val >= 0)
-			info->sc.end_time = val;
+		info->sc.end_time = val;
 
 		chr_err(
 			"[smartcharging stime]enable smartcharging=%d\n",

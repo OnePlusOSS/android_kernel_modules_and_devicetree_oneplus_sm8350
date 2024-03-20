@@ -478,7 +478,7 @@ int oplus_cfg_register(struct oplus_cfg *cfg)
 	list_for_each_entry (cfg_tmp, &cfg_list, list) {
 		if (cfg->type != cfg_tmp->type)
 			continue;
-		pr_err("type=%d is already registered\n");
+		pr_err("type=%d is already registered\n", cfg->type);
 		mutex_unlock(&cfg_list_lock);
 		return -EINVAL;
 	}

@@ -521,8 +521,27 @@
                 "write": false,
                 "overwrite": false
             }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_VOOC_SET_SHUTDOW_SWITCH_MODE",
+            "desc": {
+                "zh": "关机时候设置快充相关状态"
+            },
+            "auto_debug_code": true,
+            "parameter_list": [],
+            "parameter_desc": [],
+            "vict": {
+                "read": false,
+                "write": {
+                    "cmd": "vict -f {id} -S vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                },
+                "overwrite": false
+            }
         }
     ],
 
-    "version": "V2.1:27:279c4c0e830f0f3931d67d08eea0a0ccf48ef85afa48ac58be616bd6ae5658af"
+    "version": "V2.2:28:c2c3a606a677a97f9a1534ea8f12f3088174cfcb833ca4e1bc74130d125c79db"
 }

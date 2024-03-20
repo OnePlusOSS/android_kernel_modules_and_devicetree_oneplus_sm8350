@@ -17,12 +17,14 @@ enum ufcs_notify_state {
 	UFCS_NOTIFY_EXIT,
 	UFCS_NOTIFY_TEST_MODE_CHANGED,
 	UFCS_NOTIFY_VOL_ACC_TEST_MODE_CHANGED,
+	UFCS_NOTIFY_ERR_FLAG,
+	UFCS_NOTIFY_FIFO_OVERFLOW,
 };
 
 #if IS_ENABLED(CONFIG_OPLUS_UFCS_CLASS)
 int ufcs_reg_event_notifier(struct notifier_block *nb);
 void ufcs_unreg_event_notifier(struct notifier_block *nb);
-void ufcs_send_state(struct ufcs_class *class, enum ufcs_notify_state state);
+void ufcs_send_state(enum ufcs_notify_state state, void *v);
 #else
 
 __maybe_unused
@@ -38,7 +40,7 @@ static inline void ufcs_unreg_event_notifier(struct notifier_block *nb)
 }
 
 __maybe_unused
-static inline void ufcs_send_state(struct ufcs_class *class, enum ufcs_notify_state state)
+static inline void ufcs_send_state(enum ufcs_notify_state state, void *v)
 {
 	return;
 }

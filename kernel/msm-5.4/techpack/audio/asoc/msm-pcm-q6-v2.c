@@ -1309,7 +1309,12 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 			goto fail;
 		}
 
+#ifndef OPLUS_ARCH_EXTENDS
 		if (size == 0 || size < prtd->pcm_count) {
+#else
+		/* Apply CR3446191 to Add dsp buf check */
+		if ((size == 0 || size < prtd->pcm_count) && ((offset + size) < prtd->pcm_count)) {
+#endif /*OPLUS_ARCH_EXTENDS*/
 			memset(bufptr + offset + size, 0, prtd->pcm_count - size);
 			if (fbytes > prtd->pcm_count)
 				size = xfer = prtd->pcm_count;

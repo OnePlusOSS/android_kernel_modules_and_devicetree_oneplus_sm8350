@@ -106,7 +106,6 @@ static int oplus_mt6375_guage_exit(struct oplus_chg_ic_dev *ic_dev)
 static int oplus_mt6375_guage_get_batt_vol(struct oplus_chg_ic_dev *ic_dev, int index, int *vol_mv)
 {
 	*vol_mv = g_gauge_chip->gauge_ops->get_battery_mvolts();
-	chg_err("*vol_mv = %d\n", *vol_mv);
 
 	return 0;
 }
@@ -114,14 +113,12 @@ static int oplus_mt6375_guage_get_batt_vol(struct oplus_chg_ic_dev *ic_dev, int 
 static int oplus_mt6375_guage_get_batt_max(struct oplus_chg_ic_dev *ic_dev, int *vol_mv)
 {
 	*vol_mv = g_gauge_chip->gauge_ops->get_battery_mvolts();
-	chg_info("*vol_mv = %d\n", *vol_mv);
 
 	return 0;
 }
 static int oplus_mt6375_guage_get_batt_min(struct oplus_chg_ic_dev *ic_dev, int *vol_mv)
 {
 	*vol_mv = g_gauge_chip->gauge_ops->get_battery_mvolts();
-	chg_info("*vol_mv = %d\n", *vol_mv);
 
 	return 0;
 }
@@ -129,7 +126,6 @@ static int oplus_mt6375_guage_get_batt_min(struct oplus_chg_ic_dev *ic_dev, int 
 static int oplus_mt6375_guage_get_batt_curr(struct oplus_chg_ic_dev *ic_dev, int *curr_ma)
 {
 	*curr_ma = g_gauge_chip->gauge_ops->get_average_current();
-	chg_info("*curr_ma = %d\n", *curr_ma);
 
 	return 0;
 }
@@ -139,11 +135,9 @@ static int oplus_mt6375_guage_get_batt_temp(struct oplus_chg_ic_dev *ic_dev, int
 	int soc;
 	soc = g_gauge_chip->gauge_ops->get_battery_soc();
 	if (soc < 0) {
-		chg_info("soc = %d\n", soc);
 		return -1;
 	}
 	*temp = g_gauge_chip->gauge_ops->get_battery_temperature();
-	chg_info("*temp = %d\n", *temp);
 
 	return 0;
 }
@@ -151,7 +145,6 @@ static int oplus_mt6375_guage_get_batt_temp(struct oplus_chg_ic_dev *ic_dev, int
 static int oplus_mt6375_guage_get_batt_soc(struct oplus_chg_ic_dev *ic_dev, int *soc)
 {
 	*soc = g_gauge_chip->gauge_ops->get_battery_soc();
-	chg_info("soc = %d\n", *soc);
 	if (*soc < 0) {
 		return -1;
 	}
@@ -162,7 +155,6 @@ static int oplus_mt6375_guage_get_batt_soc(struct oplus_chg_ic_dev *ic_dev, int 
 static int oplus_mt6375_guage_get_batt_fcc(struct oplus_chg_ic_dev *ic_dev, int *fcc)
 {
 	*fcc = g_gauge_chip->gauge_ops->get_battery_fcc();
-	chg_info("*fcc = %d\n", *fcc);
 
 	return 0;
 }
@@ -170,7 +162,6 @@ static int oplus_mt6375_guage_get_batt_fcc(struct oplus_chg_ic_dev *ic_dev, int 
 static int oplus_mt6375_guage_get_batt_cc(struct oplus_chg_ic_dev *ic_dev, int *cc)
 {
 	*cc = g_gauge_chip->gauge_ops->get_battery_cc();
-	chg_info("*cc = %d\n", *cc);
 
 	return 0;
 }
@@ -178,7 +169,6 @@ static int oplus_mt6375_guage_get_batt_cc(struct oplus_chg_ic_dev *ic_dev, int *
 static int oplus_mt6375_guage_get_batt_rm(struct oplus_chg_ic_dev *ic_dev, int *rm)
 {
 	*rm = g_gauge_chip->gauge_ops->get_batt_remaining_capacity();
-	chg_info("*rm = %d\n", *rm);
 
 	return 0;
 }
@@ -186,7 +176,6 @@ static int oplus_mt6375_guage_get_batt_rm(struct oplus_chg_ic_dev *ic_dev, int *
 static int oplus_mt6375_guage_get_batt_soh(struct oplus_chg_ic_dev *ic_dev, int *soh)
 {
 	*soh = g_gauge_chip->gauge_ops->get_battery_soh();
-	chg_info("*soh = %d\n", *soh);
 
 	return 0;
 }
@@ -212,7 +201,6 @@ static int oplus_mt6375_guage_get_batt_auth(struct oplus_chg_ic_dev *ic_dev, boo
 static int oplus_mt6375_guage_get_afi_update_done(struct oplus_chg_ic_dev *ic_dev, bool *status)
 {
 	*status = true;
-	chg_info("*status = %d\n", *status);
 	return 0;
 }
 
@@ -233,15 +221,11 @@ static int oplus_mt6375_guage_set_batt_full(struct oplus_chg_ic_dev *ic_dev, boo
 
 static int oplus_mt6375_guage_update_dod0(struct oplus_chg_ic_dev *ic_dev)
 {
-	chg_info("oplus_mt6375_guage_update_dod0\n");
-
 	return g_gauge_chip->gauge_ops->update_battery_dod0();
 }
 
 static int oplus_mt6375_guage_update_soc_smooth_parameter(struct oplus_chg_ic_dev *ic_dev)
 {
-	chg_info("oplus_mt6375_guage_update_soc_smooth_parameter\n");
-
 	return g_gauge_chip->gauge_ops->update_soc_smooth_parameter();
 }
 
@@ -250,16 +234,13 @@ static int oplus_mt6375_guage_get_batt_num(struct oplus_chg_ic_dev *ic_dev, int 
 	struct chip_mt6375_gauge *chip;
 
 	chip = oplus_chg_ic_get_drvdata(ic_dev);
-
 	*num = chip->batt_num;
-	chg_info("oplus_mt6375_guage_get_batt_num, *num = %d\n", *num);
+
 	return 0;
 }
 
 static int oplus_mt6375_guage_get_batt_exist(struct oplus_chg_ic_dev *ic_dev, bool *exist)
 {
-	chg_info("oplus_mt6375_guage_get_batt_exist\n");
-
 	*exist = true;
 
 	return 0;

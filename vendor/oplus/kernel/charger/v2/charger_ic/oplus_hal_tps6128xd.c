@@ -52,9 +52,9 @@ MODULE_PARM_DESC(tps6128xd_debug_track, "debug track");
 #define DEFAULT_VOUTFLOORSET_VAL	0x03
 #define DEFAULT_ILIMSET_VAL		0x1F
 
-#define STATUS_MASK			0x13
-#define BOOST_STATUS_NORMAL		0x11
-#define BYPASS_STATUS_NORMAL		0x01
+#define STATUS_MASK			0x12
+#define BOOST_STATUS_NORMAL		0x10
+#define BYPASS_STATUS_NORMAL		0x00
 
 enum {
 	BYB_STATUS_FAULT = 0,
@@ -490,6 +490,7 @@ static ssize_t byb_status_show(struct device *dev, struct device_attribute *attr
 	int size = 0;
 	int rc = 0;
 	int status = BYB_STATUS_FAULT;
+	int gpio_status = GPIO_STATUS_NOT_SUPPORT;
 
 	if (!ic_dev->online)
 		return -ENOTSUPP;
@@ -498,6 +499,13 @@ static ssize_t byb_status_show(struct device *dev, struct device_attribute *attr
 		chg_err("in suspended\n");
 		size += snprintf(buf + size, PAGE_SIZE - size, "in suspended|in suspended\n");
 		return size;
+	}
+
+	gpio_status = tps6128xd_get_id_status(chip);
+	if (gpio_status != chip->id_match_status) {
+		chg_err("id not match %d %d,", gpio_status, chip->id_match_status);
+		size += snprintf(buf + size, PAGE_SIZE - size,
+			"id not match %d %d,\n", gpio_status, chip->id_match_status);
 	}
 
 	rc = regmap_read(chip->regmap, STATUS_REG, &reg_val);

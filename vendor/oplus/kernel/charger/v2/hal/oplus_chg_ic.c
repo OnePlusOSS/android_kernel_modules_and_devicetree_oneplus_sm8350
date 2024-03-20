@@ -42,6 +42,8 @@ static const char * const err_type_text[] = {
 	[OPLUS_IC_ERR_CC_LOGIC]		= "CCLogic",
 	[OPLUS_IC_ERR_PARALLEL_UNBALANCE]	= "ParallelUnbalance",
 	[OPLUS_IC_ERR_MOS_ERROR]	= "MosError",
+	[OPLUS_IC_ERR_OFFLINE]		= "Offline",
+	[OPLUS_IC_ERR_UFCS]		= "UFCS",
 };
 
 static DEFINE_MUTEX(list_lock);

@@ -92,13 +92,14 @@ int find_in_plist(struct task_struct *p,  struct task_struct *ots)
 }
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))
-int insert_hot_thread(struct task_struct *ots, struct task_struct *p, struct task_struct *leader, u32 now_idx)
+int insert_hot_thread(struct task_struct *ots, struct task_struct *p, u32 now_idx)
 #else
-int insert_hot_thread(struct oplus_task_struct *ots, struct task_struct *p, struct task_struct *leader, u32 now_idx)
+int insert_hot_thread(struct oplus_task_struct *ots, struct task_struct *p, u32 now_idx)
 #endif
 {
 	struct hot_thread_node  *hot_thread_node;
 	unsigned long flags;
+	struct task_struct *leader;
 	const struct cred *tcred;
 	uid_t uid;
 
@@ -118,7 +119,13 @@ int insert_hot_thread(struct oplus_task_struct *ots, struct task_struct *p, stru
 			if (IS_ERR_OR_NULL(hot_thread_node))
 				goto done;
 			memcpy(hot_thread_node->hot_thread_struct.comm, p->comm, TASK_COMM_LEN);
-			memcpy(hot_thread_node->hot_thread_struct.leader_comm, leader->comm, TASK_COMM_LEN);
+			rcu_read_lock();
+			if (pid_alive(p)) {
+				leader = rcu_dereference(p->group_leader);
+				if (pid_alive(leader))
+					memcpy(hot_thread_node->hot_thread_struct.leader_comm, leader->comm, TASK_COMM_LEN);
+			}
+			rcu_read_unlock();
 			hot_thread_node->hot_thread_struct.pid = p->pid;
 			hot_thread_node->hot_thread_struct.tgid = p->tgid;
 			hot_thread_node->hot_thread_struct.uid = uid;
@@ -231,7 +238,7 @@ void jank_hotthread_update_tick(struct task_struct *p, u64 now)
 
 	now_idx = time2winidx(now);
 	if (unlikely(g_over_load)) {
-		insert_hot_thread(ots, p, p->group_leader, now_idx);
+		insert_hot_thread(ots, p, now_idx);
 		count_rq_num(cpu);
 	}
 	record_b = &task_track[cluster_id].track[now_idx].record;

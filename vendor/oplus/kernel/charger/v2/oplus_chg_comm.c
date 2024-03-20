@@ -352,6 +352,8 @@ static void oplus_comm_set_batt_full(struct oplus_chg_comm *chip, bool full);
 static void oplus_comm_set_sub_batt_full(struct oplus_chg_comm *chip, bool full);
 static void oplus_comm_fginfo_reset(struct oplus_chg_comm *chip);
 static void oplus_comm_set_chg_cycle_status(struct oplus_chg_comm *chip, int status);
+static bool oplus_comm_is_not_charging(struct oplus_chg_comm *chip);
+static bool oplus_comm_is_discharging(struct oplus_chg_comm *chip);
 static bool g_boot_completed;
 
 static bool fg_reset_test = false;
@@ -506,9 +508,6 @@ static bool is_sub_gauge_topic_available(struct oplus_chg_comm *chip)
 {
 	if (!chip->sub_gauge_topic)
 		chip->sub_gauge_topic = oplus_mms_get_by_name("gauge:1");
-
-	if (!chip->sub_gauge_topic)
-		chg_err(" get gauge:1 error\n");
 
 	return !!chip->sub_gauge_topic;
 }
@@ -1170,7 +1169,7 @@ static void oplus_comm_check_fv_over(struct oplus_chg_comm *chip)
 		return;
 	if (chip->ufcs_charging)
 		return;
-	if (chip->batt_full)
+	if (oplus_comm_is_not_charging(chip) || oplus_comm_is_discharging(chip))
 		return;
 	if (is_wls_fastchg_started(chip))
 		return;
@@ -1642,7 +1641,7 @@ static const int soc_jump_table[RESERVE_SOC_MAX + 1][RESERVE_SOC_MAX] = {
 	{ -1, -1, -1, -1, -1 }, /* reserve 0 */
 	{ 55, -1, -1, -1, -1 }, /* reserve 1 */
 	{ 36, 71, -1, -1, -1 }, /* reserve 2 */
-	{ 29, 53, 76, -1, -1 }, /* reserve 3 */
+	{ 29, 53, 74, -1, -1 }, /* reserve 3 */
 	{ 25, 43, 60, 78, -1 }, /* reserve 4 */
 	{ 22, 36, 50, 64, 78 }, /* reserve 5 */
 };
@@ -1959,7 +1958,7 @@ done:
 		if (!chip->batt_full && ui_soc == 100 && charging &&
 		    (chip->config.smooth_switch || chip->ffc_status == FFC_DEFAULT) &&
 		    (!chip->vooc_charging || vooc_by_normalpath_chg) && mmi_chg &&
-		    !chip->ufcs_charging) {
+		    !chip->ufcs_charging && !is_wls_fastchg_started(chip)) {
 			tmp = chip->batt_full_jiffies +
 			      (unsigned long)(60 * HZ);
 			if (time_is_before_jiffies(tmp)) {
@@ -3135,7 +3134,7 @@ static void oplus_comm_check_shell_temp(struct oplus_chg_comm *chip, bool update
 		shell_temp = chip->batt_temp;
 	} else {
 		rc = thermal_zone_get_temp(chip->shell_themal, &shell_temp);
-		chg_err("Can get shell_back %p\n", chip->shell_themal);
+		chg_debug("Can get shell_back %p %d\n", chip->shell_themal, shell_temp / 100);
 
 		if (rc) {
 			chg_err("thermal_zone_get_temp get error");
@@ -4670,8 +4669,8 @@ static struct mms_item oplus_comm_item[] = {
 		.desc = {
 			.item_id = COMM_ITEM_SHELL_TEMP,
 			.dead_thr_enable = true,
-			/* Actively report when the temperature changes more than 5 degrees */
-			.dead_zone_thr = 50,
+			/* Actively report when the temperature changes more than 0.5 degrees */
+			.dead_zone_thr = 5,
 			.update = oplus_comm_update_shell_temp,
 		}
 	},
@@ -6625,9 +6624,6 @@ static void oplus_fg_soft_reset_work(struct work_struct *work)
 		chip->fg_check_ibat_cnt = 0;
 	}
 
-	chg_info("reset_done [%s] ibat_cnt[%d] fail_cnt[%d] \n",
-		chip->fg_soft_reset_done == true ?"true":"false",
-		chip->fg_check_ibat_cnt, chip->fg_soft_reset_fail_cnt);
 }
 
 static void oplus_wired_chg_check_work(struct work_struct *work)

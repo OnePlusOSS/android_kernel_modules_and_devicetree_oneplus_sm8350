@@ -737,6 +737,21 @@ static int oplus_chg_vphy_get_retry_flag(struct oplus_chg_ic_dev *ic_dev, bool *
 	return rc;
 }
 
+static int oplus_chg_vphy_set_shutdown_switch_mode(struct oplus_chg_ic_dev *ic_dev)
+{
+	int rc;
+
+	if (ic_dev == NULL) {
+		chg_err("oplus_chg_ic_dev is NULL");
+		return -ENODEV;
+	}
+	rc = oplus_chg_vphy_reset_sleep(ic_dev);
+	rc = oplus_chg_vphy_set_switch_mode(ic_dev, VOOC_SWITCH_MODE_NORMAL);
+	msleep(500);
+
+	return rc;
+}
+
 static void *oplus_chg_vphy_get_func(struct oplus_chg_ic_dev *ic_dev,
 				   enum oplus_chg_ic_func func_id)
 {
@@ -838,6 +853,10 @@ static void *oplus_chg_vphy_get_func(struct oplus_chg_ic_dev *ic_dev,
 	case OPLUS_IC_FUNC_VOOCPHY_GET_RETRY_FLAG:
 		func = OPLUS_CHG_IC_FUNC_CHECK(OPLUS_IC_FUNC_VOOCPHY_GET_RETRY_FLAG,
 					       oplus_chg_vphy_get_retry_flag);
+		break;
+	case OPLUS_IC_FUNC_VOOC_SET_SHUTDOW_SWITCH_MODE:
+		func = OPLUS_CHG_IC_FUNC_CHECK(OPLUS_IC_FUNC_VOOC_SET_SHUTDOW_SWITCH_MODE,
+					       oplus_chg_vphy_set_shutdown_switch_mode);
 		break;
 	default:
 		chg_err("this func(=%d) is not supported\n", func_id);
@@ -1106,22 +1125,6 @@ static int oplus_virtual_vphy_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static void oplus_virtual_vphy_shutdown(struct platform_device *pdev)
-{
-/* TODO
-	struct oplus_virtual_vphy_ic *chip = platform_get_drvdata(pdev);
-
-	oplus_chg_vphy_set_switch_mode(chip->ic_dev, VOOC_SWITCH_MODE_NORMAL);
-	msleep(10);
-	if (oplus_vooc_get_fastchg_started() == true) {
-		oplus_chg_vphy_set_clock_sleep(chip->ic_dev);
-		msleep(10);
-		oplus_chg_vphy_reset_active(chip->ic_dev);
-	}
-	msleep(80);
-*/
-}
-
 static const struct of_device_id oplus_virtual_vphy_match[] = {
 	{ .compatible = "oplus,virtual_vphy" },
 	{},
@@ -1135,7 +1138,6 @@ static struct platform_driver oplus_virtual_vphy_driver = {
 	},
 	.probe		= oplus_virtual_vphy_probe,
 	.remove		= oplus_virtual_vphy_remove,
-	.shutdown	= oplus_virtual_vphy_shutdown,
 };
 
 static __init int oplus_virtual_vphy_init(void)

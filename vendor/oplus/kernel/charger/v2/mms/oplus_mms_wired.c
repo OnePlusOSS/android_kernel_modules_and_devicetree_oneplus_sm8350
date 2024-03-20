@@ -3067,7 +3067,18 @@ static void oplus_wired_otg_enable_handler_work(struct work_struct *work)
 	if (rc < 0)
 		role = enable ? TYPEC_HOST : TYPEC_DEVICE;
 
-	/* TODO:set wls wrx_en */
+	if (enable) {
+		msg = oplus_mms_alloc_msg(MSG_TYPE_ITEM, MSG_PRIO_MEDIUM, WIRED_ITEM_PRE_OTG_ENABLE);
+		if (msg == NULL) {
+			chg_err("alloc msg error\n");
+			return;
+		}
+		rc = oplus_mms_publish_msg_sync(chip->wired_topic, msg);
+		if (rc < 0) {
+			chg_err("publish otg pre enable msg error, rc=%d\n", rc);
+			kfree(msg);
+		}
+	}
 
 	if (enable) {
 		rc = oplus_chg_ic_func(chip->buck_ic,
@@ -3566,6 +3577,8 @@ static void oplus_mms_wired_plugin_handler_work(struct work_struct *work)
 	bool online, present;
 	bool present_changed = false;
 	enum typec_data_role role;
+	static bool init_flag = false;
+	struct votable *pd_boost_disable_votable;
 	int rc;
 
 	if (chip->wired_topic == NULL) {
@@ -3653,6 +3666,15 @@ skip_present:
 	}
 
 check_data_role:
+	if (!init_flag) {
+		pd_boost_disable_votable = find_votable("PD_BOOST_DISABLE");
+		if (chip->wired_online && pd_boost_disable_votable &&
+		    get_client_vote(pd_boost_disable_votable, SVID_VOTER) > 0) {
+			chg_err("rerun svid_handler_work\n");
+			schedule_delayed_work(&chip->svid_handler_work, 0);
+		}
+		init_flag = true;
+	}
 	rc = oplus_chg_ic_func(chip->buck_ic, OPLUS_IC_FUNC_GET_DATA_ROLE,
 			       (int *)&role);
 	if (rc < 0) {
@@ -3699,10 +3721,19 @@ oplus_mms_wired_chg_type_change_handler_work(struct work_struct *work)
 		kfree(msg);
 	}
 
-	if (chip->cpa_support && real_chg_type == OPLUS_CHG_USB_TYPE_PD && chip->cpa_topic) {
+	if (chip->cpa_support && chip->cpa_topic &&
+	    (real_chg_type == OPLUS_CHG_USB_TYPE_PD || real_chg_type == OPLUS_CHG_USB_TYPE_PD_PPS)) {
 		oplus_mms_get_item_data(chip->cpa_topic, CPA_ITEM_ALLOW, &data, true);
-		if (data.intval != CHG_PROTOCOL_PD)
+		if (data.intval != CHG_PROTOCOL_PD && real_chg_type == OPLUS_CHG_USB_TYPE_PD) {
 			oplus_cpa_request(chip->cpa_topic, CHG_PROTOCOL_PD);
+			chg_info("pd message came late. Retry arbitration.\n");
+		} else if (data.intval != CHG_PROTOCOL_PPS && real_chg_type == OPLUS_CHG_USB_TYPE_PD_PPS) {
+			oplus_cpa_request(chip->cpa_topic, CHG_PROTOCOL_PPS);
+			chg_info("pps message came late. Retry arbitration.\n");
+		} else {
+			chg_info("%s message came late. do nothing.\n",
+				 real_chg_type == OPLUS_CHG_USB_TYPE_PD ? "PD" : "PPS");
+		}
 	}
 }
 
@@ -4280,6 +4311,25 @@ static int oplus_mms_wired_update_usb_temp_r(struct oplus_mms *mms,
 	return 0;
 }
 
+static int oplus_mms_wired_update_pre_otg_enable_status(struct oplus_mms *mms, union mms_msg_data *data)
+{
+	struct oplus_mms_wired *chip;
+
+	if (mms == NULL) {
+		chg_err("mms is NULL");
+		return -EINVAL;
+	}
+	if (data == NULL) {
+		chg_err("data is NULL");
+		return -EINVAL;
+	}
+	chip = oplus_mms_get_drvdata(mms);
+	/*enable = chip->pre_otg_enable;
+	data->intval = enable;*/
+
+	return 0;
+}
+
 static int oplus_mms_wired_update_otg_enable_status(struct oplus_mms *mms,
 						    union mms_msg_data *data)
 {
@@ -4649,6 +4699,16 @@ static struct mms_item oplus_mms_wired_item[] = {
 			.down_thr_enable = false,
 			.dead_thr_enable = false,
 			.update = oplus_mms_wired_update_usb_temp_r,
+		}
+	},
+	{
+		.desc = {
+			.item_id = WIRED_ITEM_PRE_OTG_ENABLE,
+			.str_data = false,
+			.up_thr_enable = false,
+			.down_thr_enable = false,
+			.dead_thr_enable = false,
+			.update = oplus_mms_wired_update_pre_otg_enable_status,
 		}
 	},
 	{

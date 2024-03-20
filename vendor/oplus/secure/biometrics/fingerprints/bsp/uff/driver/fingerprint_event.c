@@ -1,3 +1,5 @@
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #include "include/fingerprint_event.h"
 #include <linux/init.h>
 #include <linux/module.h>
@@ -116,6 +118,7 @@ int send_fingerprint_msg(int module, int event, void *data,
     int ret = 0;
     int need_report = 0;
     if (get_fp_driver_evt_type() != FP_DRIVER_INTERRUPT) {
+        pr_info("%s, NETLINK is enable\n", __func__);
         return 0;
     }
     memset(&g_fingerprint_msg, 0, sizeof(g_fingerprint_msg));
@@ -150,6 +153,8 @@ int send_fingerprint_msg(int module, int event, void *data,
 #ifdef CONFIG_FP_INJECT_ENABLE
     fault_inject_fp_msg_hook(&g_fingerprint_msg, &need_report);
 #endif // CONFIG_FP_INJECT_ENABLE
+    pr_debug("%s, event_change:%d - %d, out_size:%d\n", __func__, event, g_fingerprint_msg.event, g_fingerprint_msg.out_size);
+    pr_info("%s, module:%d, event:%d\n", __func__, g_fingerprint_msg.module, g_fingerprint_msg.event);
     if (need_report) {
         ret = wake_up_fingerprint_event(0);
     }

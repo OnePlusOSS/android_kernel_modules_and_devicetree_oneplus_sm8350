@@ -41,6 +41,7 @@ void oplus_vooc_reply_data_no_type(struct oplus_chg_ic_dev *vooc_ic,
 				   int ret_info, int data_width, int curr_ma);
 void switch_fast_chg(struct oplus_chg_ic_dev *vooc_ic);
 void switch_normal_chg(struct oplus_chg_ic_dev *vooc_ic);
+void oplus_vooc_set_shutdown_mode(struct oplus_chg_ic_dev *vooc_ic);
 enum oplus_chg_vooc_switch_mode oplus_chg_vooc_get_switch_mode(struct oplus_chg_ic_dev *vooc_ic);
 int oplus_vooc_fw_check_then_recover(struct oplus_chg_ic_dev *vooc_ic);
 int oplus_vooc_fw_check_then_recover_fix(struct oplus_chg_ic_dev *vooc_ic);
