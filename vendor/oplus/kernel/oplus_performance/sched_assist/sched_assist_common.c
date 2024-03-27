@@ -1663,21 +1663,20 @@ void set_ux_task_to_prefer_cpu(struct task_struct *task, int *orig_target_cpu)
 	int cls_nr = ux_cputopo.cls_nr - 1;
 	int cpu = 0;
 
-	if (!sysctl_sched_assist_enabled)
+	if (!sysctl_sched_assist_enabled || !(sysctl_sched_assist_scene & SA_LAUNCH))
 		return;
 
 	if (unlikely(cls_nr <= 0))
 		return;
 
-	if (!(sysctl_sched_assist_scene & SA_LAUNCH) && is_ux_task_prefer_cpu(task, *orig_target_cpu))
+	if (is_ux_task_prefer_cpu(task, *orig_target_cpu))
 		return;
-
 retry:
 	for_each_cpu(cpu, &ux_cputopo.sched_cls[cls_nr].cpus) {
 		rq = cpu_rq(cpu);
 		curr = rq->curr;
 
-		if (!cpu_online(cpu) || cpu_isolated(cpu))
+		if (!cpu_online(cpu) || !cpu_isolated(cpu))
 			continue;
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0))

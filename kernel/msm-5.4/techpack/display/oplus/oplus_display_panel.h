@@ -145,6 +145,8 @@ struct softiris_color
 #define PANEL_IOCTL_SET_QCOM_LOG_LEVEL        PANEL_IOW(0x30, struct kernel_loglevel)
 #define PANEL_IOCTL_SET_PANEL_ROUND_CORNER    PANEL_IOWR(0x33, unsigned int)
 #define PANEL_IOCTL_GET_PANEL_ROUND_CORNER    PANEL_IOWR(0x34, unsigned int)
+/* Apollo DC backlight */
+#define PANEL_IOCTL_SET_DC_REAL_BACKLIGHT     PANEL_IOWR(0x37, unsigned int)
 #define PANEL_IOCTL_GET_LCD_MAX_BRIGHTNESS    PANEL_IOWR(0x38, unsigned int)
 #define PANEL_IOCTL_GET_PANEL_BPP                PANEL_IOWR(0x3B, unsigned int)
 #define PANEL_IOCTL_GET_PANEL_NAME               PANEL_IOWR(0x3C, struct panel_name)

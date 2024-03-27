@@ -4,8 +4,11 @@
  * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
+#include <linux/atomic.h>
 #include <linux/device.h>
+#include <linux/hrtimer.h>
 #include <linux/init.h>
+#include <linux/input/qcom-hv-haptics.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
@@ -88,6 +91,9 @@ struct swr_haptics_dev {
 	struct swr_port			port;
 	struct regulator		*slave_vdd;
 	struct regulator		*hpwr_vreg;
+	struct notifier_block		hbst_off_nb;
+	struct hrtimer			hbst_off_timer;
+	atomic_t			hbst_off;
 	u32				hpwr_voltage_mv;
 	bool				slave_enabled;
 	bool				hpwr_vreg_enabled;
@@ -314,6 +320,10 @@ static int hap_enable_swr_dac_port(struct snd_soc_dapm_widget *w,
 
 		swr_slvdev_datapath_control(swr_hap->swr_slave,
 				swr_hap->swr_slave->dev_num, true);
+
+		if (atomic_read(&swr_hap->hbst_off))
+			usleep_range(5000,5001);
+
 		/* trigger SWR play */
 		val = SWR_PLAY_BIT | SWR_PLAY_SRC_VAL_SWR;
 		rc = regmap_write(swr_hap->regmap, SWR_PLAY_REG, val);
@@ -502,6 +512,37 @@ static int swr_haptics_parse_port_mapping(struct swr_device *sdev)
 	return 0;
 }
 
+static enum hrtimer_restart disable_hbst_off_timer(struct hrtimer *timer)
+{
+	struct swr_haptics_dev *swr_hap = container_of(timer,
+			struct swr_haptics_dev, hbst_off_timer);
+
+	pr_err("%s: in \n", __func__);
+
+	atomic_set(&swr_hap->hbst_off, 0);
+	return HRTIMER_NORESTART;
+}
+
+#define HBST_OFF_DELAY_NS 5000000
+static int hbst_off_notifier(struct notifier_block *nb, unsigned long event, void *val)
+{
+	struct swr_haptics_dev *swr_hap = container_of(nb, struct swr_haptics_dev, hbst_off_nb);
+
+	pr_err("%s: in \n", __func__);
+
+	if ((hrtimer_get_remaining(&swr_hap->hbst_off_timer) > 0) ||
+			hrtimer_active(&swr_hap->hbst_off_timer))
+		hrtimer_cancel(&swr_hap->hbst_off_timer);
+
+	hrtimer_start(&swr_hap->hbst_off_timer,
+			ktime_set(0,HBST_OFF_DELAY_NS),
+			HRTIMER_MODE_REL);
+
+	atomic_set(&swr_hap->hbst_off, *(int *)val);
+
+	return 0;
+}
+
 static int swr_haptics_probe(struct swr_device *sdev)
 {
 	struct swr_haptics_dev *swr_hap;
@@ -607,6 +648,14 @@ static int swr_haptics_probe(struct swr_device *sdev)
 		goto dev_err;
 	}
 
+	atomic_set(&swr_hap->hbst_off, 0);
+	hrtimer_init(&swr_hap->hbst_off_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	swr_hap->hbst_off_timer.function = disable_hbst_off_timer;
+
+	swr_hap->hbst_off_nb.notifier_call = hbst_off_notifier;
+	rc = register_hbst_off_notifier(&swr_hap->hbst_off_nb);
+	dev_err(swr_hap->dev, "%s: register_hbst_off_notifier, rc=%d\n",__func__, rc);
+
 	return 0;
 dev_err:
 	swr_haptics_slave_disable(swr_hap);
@@ -627,6 +676,8 @@ static int swr_haptics_remove(struct swr_device *sdev)
 		rc = -ENODEV;
 		goto clean;
 	}
+
+	unregister_hbst_off_notifier(&swr_hap->hbst_off_nb);
 
 	rc = swr_haptics_slave_disable(swr_hap);
 	if (rc < 0) {
