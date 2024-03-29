@@ -142,6 +142,7 @@ struct dsi_backlight_config {
 	u32 bl_level;
 #ifdef OPLUS_BUG_STABILITY
 	u32 oplus_raw_bl;
+	u32 bl_dc_real;
 #endif /* OPLUS_BUG_STABILITY */
 
 	u32 bl_scale;

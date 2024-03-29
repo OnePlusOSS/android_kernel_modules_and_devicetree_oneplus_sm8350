@@ -699,19 +699,25 @@ int sde_crtc_set_onscreenfinger_defer_sync(struct drm_crtc_state *crtc_state,
 	return 0;
 }
 
-int sde_crtc_config_fingerprint_dim_layer(struct drm_crtc_state *crtc_state,
-		int stage)
+extern int dc_apollo_enable;
+
+int sde_crtc_config_fingerprint_dim_layer(struct drm_crtc_state *crtc_state, int stage)
 {
 	struct sde_crtc_state *cstate;
 	struct drm_display_mode *mode = &crtc_state->adjusted_mode;
 	struct sde_hw_dim_layer *fingerprint_dim_layer;
 	int alpha = oplus_get_panel_brightness_to_alpha();
 	struct sde_kms *kms;
+	struct dsi_display *display = get_main_display();
 
 	kms = _sde_crtc_get_kms_(crtc_state->crtc);
 
 	if (!kms || !kms->catalog) {
 		SDE_ERROR("invalid kms\n");
+		return -EINVAL;
+	}
+	if (!display || !display->panel) {
+		SDE_ERROR("failed get_main_display\n");
 		return -EINVAL;
 	}
 
@@ -724,6 +730,13 @@ int sde_crtc_config_fingerprint_dim_layer(struct drm_crtc_state *crtc_state,
 
 	if ((stage + SDE_STAGE_0) >= kms->catalog->mixer[0].sblk->maxblendstages) {
 		return -EINVAL;
+	}
+
+	if (display->panel->oplus_priv.dc_apollo_sync_enable && dc_apollo_enable) {
+		if ((display->panel->bl_config.bl_level == display->panel->oplus_priv.dc_apollo_sync_brightness_level)
+			&& cstate->fingerprint_mode && (display->panel->bl_config.bl_dc_real > 0)) {
+			alpha = brightness_to_alpha(display->panel->bl_config.bl_dc_real);
+		}
 	}
 
 	fingerprint_dim_layer = &cstate->dim_layer[cstate->num_dim_layers];

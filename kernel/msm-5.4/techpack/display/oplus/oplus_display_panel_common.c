@@ -1686,3 +1686,21 @@ int oplus_display_set_shutdown_flag(void *buf)
 
 	return 0;
 }
+
+/* Apollo DC backlight */
+int oplus_display_panel_set_dc_real_brightness(void *data)
+{
+	struct dsi_display *display = get_main_display();
+	uint32_t *temp_save = data;
+	int rc = 0;
+
+	if (!display || !display->panel) {
+		pr_err("%s: display or display->panel is null\n", __func__);
+		return -EINVAL;
+	}
+
+	display->panel->bl_config.bl_dc_real = *temp_save;
+
+	return rc;
+}
+

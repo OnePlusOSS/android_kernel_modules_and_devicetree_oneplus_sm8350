@@ -119,5 +119,7 @@ int oplus_display_get_cabc_status(void *buf);
 int oplus_display_set_dre_status(void *buf);
 int oplus_display_get_dre_status(void *buf);
 int oplus_display_set_shutdown_flag(void *buf);
+/* Apollo DC backlight */
+int oplus_display_panel_set_dc_real_brightness(void *data);
 #endif /*_OPLUS_DISPLAY_PANEL_COMMON_H_*/
 

@@ -420,6 +420,7 @@ struct aw8697 {
     unsigned long int microsecond;
     unsigned int sys_frequency;
     unsigned int rtp_len;
+	int oos_shortvib_flag;
 #ifdef CONFIG_OPLUS_HAPTIC_OOS
 	unsigned int sin_num;
 	size_t sin_data_lenght;
