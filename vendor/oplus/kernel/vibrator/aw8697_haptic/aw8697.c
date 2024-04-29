@@ -22,6 +22,7 @@
 #include "aw8697.h"
 #include "aw8697_reg.h"
 #include "aw8697_config.h"
+#include "aw8697_rtp_key_data.h"
 #ifdef OPLUS_FEATURE_CHG_BASIC
 #include <linux/proc_fs.h>
 #include <linux/pm_qos.h>
@@ -9023,6 +9024,301 @@ static void aw8697_rtp_work_routine(struct work_struct *work)
     aw8697->rtp_routine_on = 0;
 }
 
+#define OPLUS_162HZ_F0 1630
+#define OPLUS_166HZ_F0 1670
+#define OPLUS_168HZ_F0 1690
+#define OPLUS_170HZ_F0 1710
+#define OPLUS_172HZ_F0 1730
+#define OPLUS_174HZ_F0 1750
+#define OPLUS_178HZ_F0 1780
+
+#define SG_INPUT_DOWN_HIGH  302
+#define SG_INPUT_UP_HIGH    303
+#define SG_INPUT_DOWN_LOW   304
+#define SG_INPUT_UP_LOW     305
+#define INPUT_HIGH          112
+#define INPUT_MEDI          111
+#define INUTP_LOW           110
+
+static void aw8697_rtp_key_work_routine(struct work_struct *work)
+{
+	struct aw8697 *aw8697 = container_of(work, struct aw8697, rtp_key_work);
+	uint8_t *aw8697_rtp_key_data = NULL;
+	uint32_t aw8697_rtp_key_data_len = 0;
+
+	aw8697->rtp_init = 0;
+	mutex_lock(&aw8697->rtp_lock);
+	if (aw8697->device_id == 81538) {
+		switch(aw8697->rtp_file_num) {
+		case SG_INPUT_DOWN_HIGH:
+			aw8697_rtp_key_data = aw8697_81538_rtp_302_150Hz;
+			aw8697_rtp_key_data_len = sizeof(aw8697_81538_rtp_302_150Hz);
+			break;
+		case SG_INPUT_UP_HIGH:
+			aw8697_rtp_key_data = aw8697_81538_rtp_303_150Hz;
+			aw8697_rtp_key_data_len = sizeof(aw8697_81538_rtp_303_150Hz);
+			break;
+		case SG_INPUT_DOWN_LOW:
+			aw8697_rtp_key_data = aw8697_81538_rtp_304_150Hz;
+			aw8697_rtp_key_data_len = sizeof(aw8697_81538_rtp_304_150Hz);
+			break;
+		case SG_INPUT_UP_LOW:
+			aw8697_rtp_key_data = aw8697_81538_rtp_305_150Hz;
+			aw8697_rtp_key_data_len = sizeof(aw8697_81538_rtp_305_150Hz);
+			break;
+		default:
+			goto undef_rtp;
+			break;
+		}
+	} else if (aw8697->device_id == 9595) {
+		switch(aw8697->rtp_file_num) {
+		case SG_INPUT_DOWN_HIGH:
+			if (aw8697->f0 <= OPLUS_166HZ_F0) {
+				aw8697_rtp_key_data = aw8697_9595_rtp_302_166Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_9595_rtp_302_166Hz);
+			} else if (aw8697->f0 <= OPLUS_168HZ_F0) {
+				aw8697_rtp_key_data = aw8697_9595_rtp_302_168Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_9595_rtp_302_168Hz);
+			} else if (aw8697->f0 <= OPLUS_170HZ_F0) {
+				aw8697_rtp_key_data = aw8697_9595_rtp_302_170Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_9595_rtp_302_170Hz);
+			} else if (aw8697->f0 <= OPLUS_172HZ_F0) {
+				aw8697_rtp_key_data = aw8697_9595_rtp_302_172Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_9595_rtp_302_172Hz);
+			} else {
+				aw8697_rtp_key_data = aw8697_9595_rtp_302_174Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_9595_rtp_302_174Hz);
+			}
+			break;
+		case SG_INPUT_UP_HIGH:
+			if (aw8697->f0 <= OPLUS_166HZ_F0) {
+				aw8697_rtp_key_data = aw8697_9595_rtp_303_166Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_9595_rtp_303_166Hz);
+			} else if (aw8697->f0 <= OPLUS_168HZ_F0) {
+				aw8697_rtp_key_data = aw8697_9595_rtp_303_168Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_9595_rtp_303_168Hz);
+			} else if (aw8697->f0 <= OPLUS_170HZ_F0) {
+				aw8697_rtp_key_data = aw8697_9595_rtp_303_170Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_9595_rtp_303_170Hz);
+			} else if (aw8697->f0 <= OPLUS_172HZ_F0) {
+				aw8697_rtp_key_data = aw8697_9595_rtp_303_172Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_9595_rtp_303_172Hz);
+			} else {
+				aw8697_rtp_key_data = aw8697_9595_rtp_303_174Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_9595_rtp_303_174Hz);
+			}
+			break;
+		case SG_INPUT_DOWN_LOW:
+			if (aw8697->f0 <= OPLUS_166HZ_F0) {
+				aw8697_rtp_key_data = aw8697_9595_rtp_304_166Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_9595_rtp_304_166Hz);
+			} else if (aw8697->f0 <= OPLUS_168HZ_F0) {
+				aw8697_rtp_key_data = aw8697_9595_rtp_304_168Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_9595_rtp_304_168Hz);
+			} else if (aw8697->f0 <= OPLUS_170HZ_F0) {
+				aw8697_rtp_key_data = aw8697_9595_rtp_304_170Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_9595_rtp_304_170Hz);
+			} else if (aw8697->f0 <= OPLUS_172HZ_F0) {
+				aw8697_rtp_key_data = aw8697_9595_rtp_304_172Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_9595_rtp_304_172Hz);
+			} else {
+				aw8697_rtp_key_data = aw8697_9595_rtp_304_174Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_9595_rtp_304_174Hz);
+			}
+			break;
+		case SG_INPUT_UP_LOW:
+			if (aw8697->f0 <= OPLUS_166HZ_F0) {
+				aw8697_rtp_key_data = aw8697_9595_rtp_305_166Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_9595_rtp_305_166Hz);
+			} else if (aw8697->f0 <= OPLUS_168HZ_F0) {
+				aw8697_rtp_key_data = aw8697_9595_rtp_305_168Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_9595_rtp_305_168Hz);
+			} else if (aw8697->f0 <= OPLUS_170HZ_F0) {
+				aw8697_rtp_key_data = aw8697_9595_rtp_305_170Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_9595_rtp_305_170Hz);
+			} else if (aw8697->f0 <= OPLUS_172HZ_F0) {
+				aw8697_rtp_key_data = aw8697_9595_rtp_305_172Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_9595_rtp_305_172Hz);
+			} else {
+				aw8697_rtp_key_data = aw8697_9595_rtp_305_174Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_9595_rtp_305_174Hz);
+			}
+			break;
+		default:
+			goto undef_rtp;
+			break;
+		}
+	} else {
+		switch(aw8697->rtp_file_num) {
+		case SG_INPUT_DOWN_HIGH:
+			if (aw8697->f0 <= OPLUS_162HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_302_162Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_302_162Hz);
+			} else if (aw8697->f0 <= OPLUS_166HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_302_166Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_302_166Hz);
+			} else if (aw8697->f0 <= OPLUS_170HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_302_170Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_302_170Hz);
+			} else if (aw8697->f0 <= OPLUS_174HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_302_174Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_302_174Hz);
+			} else {
+				aw8697_rtp_key_data = aw8697_rtp_302_178Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_302_178Hz);
+			}
+			break;
+		case SG_INPUT_UP_HIGH:
+			if (aw8697->f0 <= OPLUS_162HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_303_162Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_303_162Hz);
+			} else if (aw8697->f0 <= OPLUS_166HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_303_166Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_303_166Hz);
+			} else if (aw8697->f0 <= OPLUS_170HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_303_170Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_303_170Hz);
+			} else if (aw8697->f0 <= OPLUS_174HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_303_174Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_303_174Hz);
+			} else {
+				aw8697_rtp_key_data = aw8697_rtp_303_178Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_303_178Hz);
+			}
+			break;
+		case SG_INPUT_DOWN_LOW:
+			if (aw8697->f0 <= OPLUS_162HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_304_162Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_304_162Hz);
+			} else if (aw8697->f0 <= OPLUS_166HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_304_166Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_304_166Hz);
+			} else if (aw8697->f0 <= OPLUS_170HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_304_170Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_304_170Hz);
+			} else if (aw8697->f0 <= OPLUS_174HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_304_174Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_304_174Hz);
+			} else {
+				aw8697_rtp_key_data = aw8697_rtp_304_178Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_304_178Hz);
+			}
+			break;
+		case SG_INPUT_UP_LOW:
+			if (aw8697->f0 <= OPLUS_162HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_305_162Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_305_162Hz);
+			} else if (aw8697->f0 <= OPLUS_166HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_305_166Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_305_166Hz);
+			} else if (aw8697->f0 <= OPLUS_170HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_305_170Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_305_170Hz);
+			} else if (aw8697->f0 <= OPLUS_174HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_305_174Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_305_174Hz);
+			} else {
+				aw8697_rtp_key_data = aw8697_rtp_305_178Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_305_178Hz);
+			}
+			break;
+		case INUTP_LOW:
+			if (aw8697->f0 <= OPLUS_162HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_110_162Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_110_162Hz);
+			} else if (aw8697->f0 <= OPLUS_166HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_110_166Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_110_166Hz);
+			} else if (aw8697->f0 <= OPLUS_170HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_110_170Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_110_170Hz);
+			} else if (aw8697->f0 <= OPLUS_174HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_110_174Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_110_174Hz);
+			} else {
+				aw8697_rtp_key_data = aw8697_rtp_110_178Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_110_178Hz);
+			}
+			break;
+		case INPUT_MEDI:
+			if (aw8697->f0 <= OPLUS_162HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_111_162Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_111_162Hz);
+			} else if (aw8697->f0 <= OPLUS_166HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_111_166Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_111_166Hz);
+			} else if (aw8697->f0 <= OPLUS_170HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_111_170Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_111_170Hz);
+			} else if (aw8697->f0 <= OPLUS_174HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_111_174Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_111_174Hz);
+			} else {
+				aw8697_rtp_key_data = aw8697_rtp_111_178Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_111_178Hz);
+			}
+			break;
+		case INPUT_HIGH:
+			if (aw8697->f0 <= OPLUS_162HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_112_162Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_112_162Hz);
+			} else if (aw8697->f0 <= OPLUS_166HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_112_166Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_112_166Hz);
+			} else if (aw8697->f0 <= OPLUS_170HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_112_170Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_112_170Hz);
+			} else if (aw8697->f0 <= OPLUS_174HZ_F0) {
+				aw8697_rtp_key_data = aw8697_rtp_112_174Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_112_174Hz);
+			} else {
+				aw8697_rtp_key_data = aw8697_rtp_112_178Hz;
+				aw8697_rtp_key_data_len = sizeof(aw8697_rtp_112_178Hz);
+			}
+			break;
+		default:
+			goto undef_rtp;
+			break;
+		}
+	}
+#ifndef OPLUS_FEATURE_CHG_BASIC
+	kfree(aw8697_rtp);
+	aw8697_rtp = kzalloc(aw8697_rtp_key_data_len + sizeof(int), GFP_KERNEL);
+	if (!aw8697_rtp) {
+		mutex_unlock(&aw8697->rtp_lock);
+		pr_err("%s: error allocating memory\n", __func__);
+		return;
+	}
+#else
+	aw8697_container_init(aw8697_rtp_key_data_len + sizeof(int));
+	if (!aw8697_rtp) {
+		mutex_unlock(&aw8697->rtp_lock);
+		pr_err("%s: error allocating memory\n", __func__);
+		return;
+	}
+#endif
+	aw8697_rtp->len = aw8697_rtp_key_data_len;
+	memcpy(aw8697_rtp->data, aw8697_rtp_key_data, aw8697_rtp_key_data_len);
+	mutex_unlock(&aw8697->rtp_lock);
+	aw8697->rtp_init = 1;
+	mutex_lock(&aw8697->lock);
+	/* set clock to stand */
+	aw8697_set_clock(aw8697, AW8697_HAPTIC_CLOCK_CALI_OSC_STANDARD);
+	/* gain */
+	aw8697_haptic_ram_vbat_comp(aw8697, false);
+	/* rtp mode config */
+	aw8697_haptic_play_mode(aw8697, AW8697_HAPTIC_RTP_MODE);
+	aw8697_haptic_rtp_init(aw8697);
+	mutex_unlock(&aw8697->lock);
+	aw8697_op_clean_status(aw8697);
+	pr_info("%s: rtp play done\n", __func__);
+	return;
+
+undef_rtp:
+	mutex_unlock(&aw8697->rtp_lock);
+	return;
+}
+
 static void aw8697_rtp_single_cycle_routine(struct work_struct *work)
 {
     struct aw8697 *aw8697 = container_of(work, struct aw8697, rtp_single_cycle_work);
@@ -11397,7 +11693,9 @@ static ssize_t aw8697_rtp_store(struct device *dev, struct device_attribute *att
         }
 #endif
 	if (aw8697->device_id == 9595 && val >= OPLUS_START_INDEX && val <= OPLUS_END_INDEX) {
-		val = val - 49;
+		if (val < 302 || val > 305) {
+			val = val - 49;
+		}
 	}
 
     /*OP add for juge rtp on begin*/
@@ -11463,7 +11761,11 @@ static ssize_t aw8697_rtp_store(struct device *dev, struct device_attribute *att
 	if (val < rtp_max_num) {
 		aw8697->rtp_file_num = val;
 		if(val) {
-			queue_work(system_unbound_wq, &aw8697->rtp_work);
+			if ((aw8697->device_id == 815 || aw8697->device_id == 9595 || aw8697->device_id == 81538) &&
+				((val >= 302 && val <= 305) || (val >= 110 && val <= 112)))
+				queue_work(system_unbound_wq, &aw8697->rtp_key_work);
+			else
+				queue_work(system_unbound_wq, &aw8697->rtp_work);
 		}
 	} else {
 		pr_err("%s: rtp_file_num 0x%02x over max value \n", __func__, aw8697->rtp_file_num);
@@ -13069,6 +13371,7 @@ static int aw8697_vibrator_init(struct aw8697 *aw8697)
     INIT_WORK(&aw8697->vibrator_work, aw8697_vibrator_work_routine);
 
     INIT_WORK(&aw8697->rtp_work, aw8697_rtp_work_routine);
+	INIT_WORK(&aw8697->rtp_key_work, aw8697_rtp_key_work_routine);
 
     INIT_WORK(&aw8697->rtp_single_cycle_work, aw8697_rtp_single_cycle_routine);
     INIT_WORK(&aw8697->rtp_regroup_work, aw8697_rtp_regroup_routine);
