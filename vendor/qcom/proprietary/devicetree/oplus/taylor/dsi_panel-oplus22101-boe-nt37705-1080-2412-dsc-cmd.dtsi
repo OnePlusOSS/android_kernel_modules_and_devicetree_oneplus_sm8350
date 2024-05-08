@@ -817,7 +817,7 @@
 	qcom,mdss-brightness-normal-max-level = <3515>;
 	qcom,mdss-brightness-max-level = <4095>;
 	oplus,dsi-dc-backlight-threshold = <1960>;
-	qcom,mdss-brightness-default-level = <1680>;
+	qcom,mdss-brightness-default-level = <1960>;
 
 	qcom,platform-te-gpio = <&tlmm 80 0>;
 	qcom,platform-reset-gpio = <&tlmm 44 0>;
