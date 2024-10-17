@@ -68,15 +68,6 @@
 				cooling-device = <&cdsp_sw 2 2>;
 			};
 
-			vbat_modem0 {
-				trip = <&b_bcl_lvl0>;
-				cooling-device = <&modem_pa 2 2>;
-			};
-
-			vbat_modem1 {
-				trip = <&b_bcl_lvl0>;
-				cooling-device = <&modem_tj 1 1>;
-			};
 		};
 	};
 
@@ -93,10 +84,6 @@
 				cooling-device = <&cdsp_sw 4 4>;
 			};
 
-			vbat_modem2 {
-				trip = <&b_bcl_lvl1>;
-				cooling-device = <&modem_tj 3 3>;
-			};
 		};
 	};
 
@@ -138,15 +125,6 @@
 				cooling-device = <&cdsp_sw 2 2>;
 			};
 
-			vph_modem0 {
-				trip = <&c_bcl_lvl0>;
-				cooling-device = <&modem_pa 2 2>;
-			};
-
-			vph_modem1 {
-				trip = <&c_bcl_lvl0>;
-				cooling-device = <&modem_tj 1 1>;
-			};
 		};
 	};
 
@@ -162,11 +140,6 @@
 			vph_cdsp1 {
 				trip = <&c_bcl_lvl1>;
 				cooling-device = <&cdsp_sw 4 4>;
-			};
-
-			vph_modem2 {
-				trip = <&c_bcl_lvl1>;
-				cooling-device = <&modem_tj 3 3>;
 			};
 		};
 	};
