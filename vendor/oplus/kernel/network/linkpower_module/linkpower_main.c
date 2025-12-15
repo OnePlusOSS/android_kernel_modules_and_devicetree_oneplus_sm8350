@@ -11,8 +11,10 @@ extern int sk_pid_hook_init(void);
 extern void sk_pid_hook_fini(void);
 
 #if defined MTK_PLATFORM
+#if defined MTK_CCCI_DEVICES
 extern int hba_proxy_mtk_init(void);
 extern void hba_proxy_mtk_fini(void);
+#endif
 extern int ccci_wakeup_hook_init(void);
 extern void ccci_wakeup_hook_fini(void);
 #elif defined QCOM_PLATFORM
@@ -44,6 +46,7 @@ static int __init linkpower_main_init(void)
 	}
 	printk("[linkpower_main] generic module init successfully!");
 #if defined MTK_PLATFORM
+#if defined MTK_CCCI_DEVICES
 	ret = hba_proxy_mtk_init();
 	if (ret < 0) {
 		printk("[linkpower_main] module failed to init hba_proxy_mtk.\n");
@@ -51,12 +54,15 @@ static int __init linkpower_main_init(void)
 		sk_pid_hook_fini();
 		return ret;
 	}
+#endif
 	ret = ccci_wakeup_hook_init();
 	if (ret < 0) {
 		printk("[linkpower_main] module failed to init ccci_wakeup_hook.\n");
 		linkpower_netlink_fini();
 		sk_pid_hook_fini();
+#if defined MTK_CCCI_DEVICES
 		hba_proxy_mtk_fini();
+#endif
 		return ret;
 	}
 	printk("[linkpower_main] mtk module init successfully!");
@@ -92,7 +98,9 @@ static void __exit linkpower_main_fini(void)
 	sk_pid_hook_fini();
 	printk("[linkpower_main] generic module fini successfully!");
 #if defined MTK_PLATFORM
+#if defined MTK_CCCI_DEVICES
 	hba_proxy_mtk_fini();
+#endif
 	ccci_wakeup_hook_fini();
 	printk("[linkpower_main] mtk module fini successfully!");
 #elif defined QCOM_PLATFORM

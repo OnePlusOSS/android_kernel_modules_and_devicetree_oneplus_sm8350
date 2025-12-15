@@ -25,8 +25,13 @@
 #define MAX_HBA_LIST_COUNT 5
 #define CCCI_HBA_MIPC_NAME "ttyCMIPC4"
 #define CCCI_RX_TASK_NAME "ccci_hba_rx"
-#define CCCI_MAX_RECV_BUF 4096
 #define MIPC_DEF_VAL 0
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0))
+#define CCCI_MAX_RECV_BUF 1024
+#else
+#define CCCI_MAX_RECV_BUF 4096
+#endif
+
 
 /* Netlink */
 #define HBA_NETLINK_SKB_QUEUE_LEN 5
@@ -1599,8 +1604,8 @@ static int fill_seq_sync_msg(const struct sock *sk, hba_seq_sync_msg_struct *seq
 {
 	u32 n_snd_win = 1, n_rcv_win = 1;
 	struct net *net = NULL;
-	struct tcp_sock *tp = NULL;
-	struct inet_sock *isk = NULL;
+	const struct tcp_sock *tp = NULL;
+	const struct inet_sock *isk = NULL;
 #if defined(CONFIG_IPV6) && defined(HEARTBEAT_MTK_IPV6)
 	struct ipv6_pinfo *np = NULL;
 #endif
@@ -1664,9 +1669,15 @@ static int fill_seq_sync_msg(const struct sock *sk, hba_seq_sync_msg_struct *seq
 		else {
 			seq_sync->ipv4_ttl = isk->uc_ttl;
 		}
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0))
+		seq_sync->ipv4_id = atomic_read(&isk->inet_id);
+		printk("[heartbeat_proxy_mtk] fill_seq_sync_msg tos=%u, id=%u, ttl=%d.\n",
+		       isk->tos, atomic_read(&isk->inet_id), seq_sync->ipv4_ttl);
+#else
 		seq_sync->ipv4_id = isk->inet_id;
 		printk("[heartbeat_proxy_mtk] fill_seq_sync_msg tos=%u, id=%u, ttl=%d.\n",
 		       isk->tos, isk->inet_id, seq_sync->ipv4_ttl);
+#endif
 	}
 	else {
 #if defined(CONFIG_IPV6) && defined(HEARTBEAT_MTK_IPV6)

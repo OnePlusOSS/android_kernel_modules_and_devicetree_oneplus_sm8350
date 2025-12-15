@@ -1,4 +1,0 @@
-/dts-v1/;
-
-#include "../../qcom/lahaina.dtsi"
-#include "lahaina_base_oplus_common.dtsi"

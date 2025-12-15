@@ -1,0 +1,11 @@
+prefix=/home/users/lgao/work/abi-tools/install
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: libabigail
+Description: The ABI Generic Analysis and Instrumentation Library
+Version: 1.8
+Requires.private: libxml-2.0 >= 2.6.22
+Libs: -L${libdir} -labigail
+Cflags: -I${includedir}/libabigail

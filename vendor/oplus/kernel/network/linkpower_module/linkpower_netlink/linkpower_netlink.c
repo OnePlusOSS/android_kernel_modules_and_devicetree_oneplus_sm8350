@@ -12,7 +12,9 @@
 
 extern int sk_pid_hook_netlink_nlmsg_handle(struct sk_buff *skb, struct genl_info *info);
 #if defined MTK_PLATFORM
+#if defined MTK_CCCI_DEVICES
 extern int hba_netlink_nlmsg_handle(struct sk_buff *skb, struct genl_info *info);
+#endif
 extern int ccci_wakeup_hook_netlink_nlmsg_handle(struct sk_buff *skb, struct genl_info *info);
 #elif defined QCOM_PLATFORM
 /*int hba_qcom_netlink_nlmsg_handle(struct sk_buff *skb, struct genl_info *info);*/
@@ -173,8 +175,10 @@ static int linkpower_netlink_nlmsg_handle(struct sk_buff *skb, struct genl_info 
 	if ((nla_type > NETLINK_ID_SK_PID_HOOK_BEGIN) && (nla_type < NETLINK_ID_SK_PID_HOOK_END)) {
 		return sk_pid_hook_netlink_nlmsg_handle(skb, info);
 #if defined MTK_PLATFORM
+#if defined MTK_CCCI_DEVICES
 	} else if ((nla_type > NETLINK_ID_HBA_PROXY_MTK_BEGIN) && (nla_type < NETLINK_ID_HBA_PROXY_MTK_END)) {
 		return hba_netlink_nlmsg_handle(skb, info);
+#endif
 	} else if ((nla_type > NETLINK_ID_CCCI_WAKEUP_HOOK_BEGIN) && (nla_type < NETLINK_ID_CCCI_WAKEUP_HOOK_END)) {
 		return ccci_wakeup_hook_netlink_nlmsg_handle(skb, info);
 #elif defined QCOM_PLATFORM

@@ -75,7 +75,7 @@ static int handler_ccif_rx_collect(struct kprobe *kp, struct pt_regs *regs)
 	channel_id = regs->regs[CCCI_CHANNEL_ID_REGS_INDEX];
 
 	if ((now - ccci_wakeup_stamp) < CCCI_WAKEUP_IGNORE_TIME_MS) {
-		printk("[ccci_wakeup_hook] channel_id=%lu stamp=%lu, ignore wakeup!", channel_id, now);
+		printk("[ccci_wakeup_hook] channel_id=%llu stamp=%llu, ignore wakeup!", channel_id, now);
 		return 0;
 	}
 	ccci_wakeup_stamp = now;
@@ -95,12 +95,12 @@ static int handler_ccif_rx_collect(struct kprobe *kp, struct pt_regs *regs)
 			}
 		}
 		if (array_overflow) {
-			printk("[ccci_wakeup_hook] channel_id=%lu stamp=%lu, array overflow!", channel_id, now);
+			printk("[ccci_wakeup_hook] channel_id=%llu stamp=%llu, array overflow!", channel_id, now);
 		} else {
-			printk("[ccci_wakeup_hook] channel_id=%lu stamp=%lu", channel_id, now);
+			printk("[ccci_wakeup_hook] channel_id=%llu stamp=%llu", channel_id, now);
 		}
 	} else {
-		printk("[ccci_wakeup_hook] failed to hook ccci wakeup, invalid format [%lu]",
+		printk("[ccci_wakeup_hook] failed to hook ccci wakeup, invalid format [%llu]",
 		       regs->regs[CCCI_CHANNEL_ID_REGS_INDEX]);
 	}
 
@@ -125,7 +125,7 @@ static int handler_ccif_resume_noirq(struct kprobe *kp, struct pt_regs *regs)
 	now = my_current_kernel_time_ms();
 
 	if ((now - ccci_wakeup_stamp) < CCCI_WAKEUP_IGNORE_TIME_MS) {
-		printk("[ccci_wakeup_hook] channel_id=%lu stamp=%lu, ignore wakeup!", channel_id, now);
+		printk("[ccci_wakeup_hook] channel_id=%llu stamp=%llu, ignore wakeup!", channel_id, now);
 		return 0;
 	}
 	ccci_wakeup_stamp = now;
@@ -144,9 +144,9 @@ static int handler_ccif_resume_noirq(struct kprobe *kp, struct pt_regs *regs)
 		}
 	}
 	if (array_overflow) {
-		printk("[ccci_wakeup_hook] channel_id=%lu stamp=%lu, array overflow!", channel_id, now);
+		printk("[ccci_wakeup_hook] channel_id=%llu stamp=%llu, array overflow!", channel_id, now);
 	} else {
-		printk("[ccci_wakeup_hook] channel_id=%lu stamp=%lu", channel_id, now);
+		printk("[ccci_wakeup_hook] channel_id=%llu stamp=%llu", channel_id, now);
 	}
 
 	return 0;
@@ -157,7 +157,7 @@ static int handler_ccif_resume_noirq(struct kprobe *kp, struct pt_regs *regs)
  *
  * @return     0 if successful, negative otherwise.
  */
-static int request_ccci_wakeup()
+static int request_ccci_wakeup(void)
 {
 	int ret = 0;
 	char msg_buf[sizeof(struct ccci_wakeup_st) * CCCI_WAKEUP_ARRAY_LEN] = { 0 };
