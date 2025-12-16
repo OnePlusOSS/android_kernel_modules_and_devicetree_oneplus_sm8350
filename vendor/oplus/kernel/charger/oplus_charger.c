@@ -4570,6 +4570,8 @@ int oplus_chg_parse_charger_dt(struct oplus_chg_chip *chip)
 		return -EINVAL;
 	}
 
+	chip->full_limit_curr_support = of_property_read_bool(node, "oplus,full_limit_curr_support");
+
 	rc = of_property_read_u32(node, "qcom,input_current_charger_ma", &chip->limits.input_current_charger_ma);
 	if (rc) {
 		chip->limits.input_current_charger_ma = OPCHG_INPUT_CURRENT_LIMIT_CHARGER_MA;

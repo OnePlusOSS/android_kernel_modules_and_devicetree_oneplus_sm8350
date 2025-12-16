@@ -1199,6 +1199,7 @@ struct oplus_chg_chip {
 	int led_temp_status;
 	bool vooc_temp_change;
 	int vooc_temp_status;
+	bool full_limit_curr_support;
 	bool camera_on;
 	bool calling_on;
 	bool ac_online;
@@ -1797,6 +1798,7 @@ int oplus_chg_get_cool_down_status(void);
 int oplus_chg_get_normal_cool_down_status(void);
 void oplus_smart_charge_by_cool_down(struct oplus_chg_chip *chip, int val);
 int oplus_convert_current_to_level(struct oplus_chg_chip *chip, int val);
+int oplus_convert_level_to_current(struct oplus_chg_chip *chip, int val);
 int oplus_convert_pps_current_to_level(struct oplus_chg_chip *chip, int val);
 void oplus_smart_charge_by_shell_temp(struct oplus_chg_chip *chip, int val);
 int oplus_smart_charge_by_bcc(struct oplus_chg_chip *chip, int val);
