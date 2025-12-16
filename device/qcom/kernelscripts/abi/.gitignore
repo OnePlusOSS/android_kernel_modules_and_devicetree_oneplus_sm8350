@@ -1,0 +1,3 @@
+elfutils-*
+*.pyc
+__pycache__

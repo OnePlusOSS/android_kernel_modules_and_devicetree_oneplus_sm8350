@@ -50,7 +50,7 @@ def define_oplus_local_modules():
             "linkpower_module/sk_pid_hook/sk_pid_hook.c",
         ]),
         conditional_defines = {
-            "mtk": ["MTK_PLATFORM"],
+            "mtk": ["MTK_PLATFORM", "MTK_CCCI_DEVICES"],
             "qcom": ["QCOM_PLATFORM"],
         },
         includes = ["."],
@@ -174,6 +174,20 @@ def define_oplus_local_modules():
         includes = ["."],
     )
 
+    define_oplus_ddk_module(
+        name = "oplus_network_tuning",
+        srcs = native.glob([
+            "**/*.h",
+            "oplus_network_tuning/oplus_network_tuning.c",
+            "oplus_network_tuning/oplus_tcp_congest_control/oplus_bbr.c",
+            "oplus_network_tuning/oplus_tcp_congest_control/oplus_tcp_congest_control.c",
+            "oplus_network_tuning/oplus_tcp_congest_control/oplus_win_minmax.c",
+            "oplus_network_tuning/oplus_tcp_syn/oplus_tcp_syn.c",
+            "oplus_network_tuning/oplus_dev_check/oplus_dev_check.c"
+        ]),
+        includes = ["."],
+    )
+
     ddk_headers(
         name = "config_headers",
         hdrs  = native.glob([
@@ -198,5 +212,6 @@ def define_oplus_local_modules():
             "oplus_network_oem_qmi",
             "oplus_network_esim",
             "oplus_network_sim_detect",
+            "oplus_network_tuning",
         ],
     )

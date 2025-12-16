@@ -789,6 +789,7 @@ static struct flag_reason_table track_flag_reason_table[] = {
 	{ TRACK_NOTIFY_FLAG_TTF_INFO, "TtfInfo" },
 	{ TRACK_NOTIFY_FLAG_UISOH_INFO, "UiSohInfo" },
 	{ TRACK_NOTIFY_FLAG_GAUGE_MODE, "GaugeMode"},
+	{ TRACK_NOTIFY_FLAG_DEC_VOL_INFO, "DecVolInfo" },
 
 	{ TRACK_NOTIFY_FLAG_NO_CHARGING, "NoCharging" },
 	{ TRACK_NOTIFY_FLAG_NO_CHARGING_OTG_ONLINE, "OtgOnline" },

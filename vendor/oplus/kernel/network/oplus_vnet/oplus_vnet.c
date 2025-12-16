@@ -17,14 +17,21 @@
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/moduleparam.h>
+#include <linux/ip.h>
+#include <linux/ipv6.h>
+#include <linux/version.h>
 #include <net/pkt_sched.h>
 #include <net/net_namespace.h>
+#include <net/ipv6.h>
+#include <net/addrconf.h>
 #include <linux/netfilter.h>
 #include <linux/netfilter_ipv4.h>
 #include <linux/netfilter_ipv6.h>
 #include <linux/skbuff.h>
 #include <linux/spinlock.h>
+#include <linux/version.h>
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 1, 0))
 static int s_debug = 0;
 static int s_enable = 1;
 
@@ -47,7 +54,8 @@ static int s_enable = 1;
 enum {
 	IFLA_OVNET_UNSPEC,
 	IFLA_OVNET_BIND,
-	IFLA_OVNET_PEER,
+	IFLA_OVNET_PEER_V4,
+	IFLA_OVNET_PEER_V6,
 	__IFLA_OVNET_MAX,
 };
 
@@ -55,9 +63,13 @@ enum {
 
 #define VIRTUAL_NET_MAX 16
 
+#define IPV6_ADDR_SCOPE_TYPE(scope)	((scope) << 16)
+
+
 struct ovnet_dev_private {
 	u32 bind_if;
 	u32 peer_ip;
+	struct in6_addr peer_ipv6;
 	struct net_device *bind_dev;
 	struct nf_hook_ops nf_ops;
 };
@@ -79,15 +91,15 @@ static int get_ovnet_if_by_org(u32 org_if, u32 *ovnet_if)
 		return -1;
 	}
 
-	spin_lock(&s_if_lock);
+	spin_lock_bh(&s_if_lock);
 	for (i = 0; i < VIRTUAL_NET_MAX; i++) {
 		if (s_if_map[i].org_if == org_if) {
 			*ovnet_if = s_if_map[i].ovnet_if;
-			spin_unlock(&s_if_lock);
+			spin_unlock_bh(&s_if_lock);
 			return 0;
 		}
 	}
-	spin_unlock(&s_if_lock);
+	spin_unlock_bh(&s_if_lock);
 
 	return -1;
 }
@@ -101,15 +113,15 @@ static int __attribute__((unused)) get_org_if_by_ovnet_if(u32 ovnet_if, u32 *org
 		return -1;
 	}
 
-	spin_lock(&s_if_lock);
+	spin_lock_bh(&s_if_lock);
 	for (i = 0; i < VIRTUAL_NET_MAX; i++) {
 		if (s_if_map[i].ovnet_if == ovnet_if) {
 			*org_if = s_if_map[i].org_if;
-			spin_unlock(&s_if_lock);
+			spin_unlock_bh(&s_if_lock);
 			return 0;
 		}
 	}
-	spin_unlock(&s_if_lock);
+	spin_unlock_bh(&s_if_lock);
 
 	return -1;
 }
@@ -120,7 +132,7 @@ static int update_ovnet_org_if(u32 org_if, u32 ovnet_if)
 	int i = 0;
 	int first_usable = -1;
 
-	spin_lock(&s_if_lock);
+	spin_lock_bh(&s_if_lock);
 	for (i = 0; i < VIRTUAL_NET_MAX; i++) {
 		if (s_if_map[i].ovnet_if == 0) {
 			if (first_usable == -1) {
@@ -133,7 +145,7 @@ static int update_ovnet_org_if(u32 org_if, u32 ovnet_if)
 			} else {
 				logk("ifmap not update!!! ");
 			}
-			spin_unlock(&s_if_lock);
+			spin_unlock_bh(&s_if_lock);
 			return 0;
 		} else if (s_if_map[i].org_if == org_if) {
 			if (s_if_map[i].ovnet_if != ovnet_if) {
@@ -142,7 +154,7 @@ static int update_ovnet_org_if(u32 org_if, u32 ovnet_if)
 			} else {
 				logk("ifmap 2 not update!!! ");
 			}
-			spin_unlock(&s_if_lock);
+			spin_unlock_bh(&s_if_lock);
 			return 0;
 		}
 	}
@@ -156,7 +168,7 @@ static int update_ovnet_org_if(u32 org_if, u32 ovnet_if)
 		logk("unavailable position for new key-value");
 	}
 
-	spin_unlock(&s_if_lock);
+	spin_unlock_bh(&s_if_lock);
 	return ret;
 }
 
@@ -164,7 +176,7 @@ static int __attribute__((unused)) del_if_map_by_org(u32 org_if)
 {
 	int i = 0;
 
-	spin_lock(&s_if_lock);
+	spin_lock_bh(&s_if_lock);
 	for (i = 0; i < VIRTUAL_NET_MAX; i++) {
 		if (s_if_map[i].org_if == org_if) {
 			s_if_map[i].org_if = 0;
@@ -174,7 +186,7 @@ static int __attribute__((unused)) del_if_map_by_org(u32 org_if)
 		}
 	}
 
-	spin_unlock(&s_if_lock);
+	spin_unlock_bh(&s_if_lock);
 	return 0;
 }
 
@@ -183,7 +195,7 @@ static int del_if_map_by_ovnet(u32 ovnet_if)
 {
 	int i = 0;
 
-	spin_lock(&s_if_lock);
+	spin_lock_bh(&s_if_lock);
 	for (i = 0; i < VIRTUAL_NET_MAX; i++) {
 		if (s_if_map[i].ovnet_if == ovnet_if) {
 			s_if_map[i].org_if = 0;
@@ -193,17 +205,23 @@ static int del_if_map_by_ovnet(u32 ovnet_if)
 		}
 	}
 
-	spin_unlock(&s_if_lock);
+	spin_unlock_bh(&s_if_lock);
 	return 0;
 }
 
 
-static int check_is_local_skb(struct sk_buff *skb, int dir, u32 peerip)
+/* 0 unicast, 1 local, 2: multicast or broacast */
+static int check_is_local_skb(struct sk_buff *skb, int dir, struct ovnet_dev_private * private,
+			struct net_device *ovnet)
 {
 	struct iphdr *iph = NULL;
 	struct ipv6hdr *ipv6h = NULL;
 	u32 mask = 0x00FFFFFF;
 	/* struct udphdr *udph = NULL; */
+
+	if ((skb->protocol == htons(ETH_P_ARP)) || (skb->protocol == htons(ETH_P_RARP))) {
+		return 2;
+	}
 
 	if (skb->protocol == htons(ETH_P_IP)) {
 		iph = ip_hdr(skb);
@@ -211,12 +229,18 @@ static int check_is_local_skb(struct sk_buff *skb, int dir, u32 peerip)
 			return 1;
 		}
 		if (dir) {
-			if (((iph->daddr & mask) == (peerip & mask)) || (iph->daddr == 0xffffffff)) {
+			if ((iph->daddr & mask) == (private->peer_ip & mask)) {
 				return 1;
 			}
+			if (iph->daddr == 0xffffffff) {
+				return 2;
+			}
 		} else {
-			if (((iph->saddr & mask) == (peerip & mask)) || (iph->saddr == 0) || (iph->daddr == 0xffffffff)) {
+			if ((iph->saddr & mask) == (private->peer_ip & mask)) {
 				return 1;
+			}
+			if ((iph->saddr == 0) || (iph->daddr == 0xffffffff)) {
+				return 2;
 			}
 		}
 		return 0;
@@ -225,7 +249,31 @@ static int check_is_local_skb(struct sk_buff *skb, int dir, u32 peerip)
 		if (!ipv6h) {
 			return 1;
 		}
-		/* TODO: need to check v6 addr? */
+		if (dir) {
+			/* here problem? */
+			if (ipv6_addr_type(&ipv6h->daddr) & IPV6_ADDR_SCOPE_TYPE(IPV6_ADDR_SCOPE_GLOBAL)) {
+				return 0;
+			}
+		} else {
+			struct inet6_dev *indev = NULL;
+			struct inet6_ifaddr *ifa = NULL;
+
+			if (ipv6_addr_is_multicast(&ipv6h->daddr)) {
+				return 2;
+			}
+
+			indev = __in6_dev_get_safely(ovnet);
+			if (indev) {
+				read_lock_bh(&indev->lock);
+				list_for_each_entry(ifa, &indev->addr_list, if_list) {
+					if (memcmp(&ifa->addr, &ipv6h->daddr, sizeof(struct in6_addr)) == 0) {
+						read_unlock_bh(&indev->lock);
+						return 0;
+					}
+				}
+				read_unlock_bh(&indev->lock);
+			}
+		}
 		return 1;
 	} else {
 		return 1;
@@ -239,6 +287,7 @@ static unsigned int ovnet_dev_ingress_hook(void *priv, struct sk_buff *skb, cons
 	int redirect_iif = 0;
 	struct net_device *rediret_dev = NULL;
 	struct ovnet_dev_private *private = NULL;
+	int type = 0;
 
 	logi("cell_dev_ingress_hook enter!");
 	if (!s_enable) {
@@ -259,21 +308,48 @@ static unsigned int ovnet_dev_ingress_hook(void *priv, struct sk_buff *skb, cons
 	}
 
 	private = netdev_priv(rediret_dev);
-	if (check_is_local_skb(skb, 0, private->peer_ip)) {
+
+	type = check_is_local_skb(skb, 0, private, rediret_dev);
+	switch (type) {
+	case 0:
+		skb->dev = rediret_dev;
+		skb->skb_iif = rediret_dev->ifindex;
+		skb->dev->stats.rx_packets += 1;
+		skb->dev->stats.rx_bytes += skb->len;
+		rcu_read_unlock();
+		ret = netif_receive_skb_core(skb);
+		logi("netif_receive_skb_core return %d", ret);
+
+		return NF_STOLEN;
+	case 1:
 		logi("recv skb is local");
 		rcu_read_unlock();
 		return NF_ACCEPT;
+	case 2: {
+			struct sk_buff * skb2 = NULL;
+
+			skb2 = skb_copy(skb, GFP_ATOMIC);
+			if (!skb2) {
+				rcu_read_unlock();
+				return NF_ACCEPT;
+			}
+
+			skb2->dev = rediret_dev;
+			skb2->skb_iif = rediret_dev->ifindex;
+			skb2->dev->stats.rx_packets += 1;
+			skb2->dev->stats.rx_bytes += skb2->len;
+			rcu_read_unlock();
+			ret = netif_receive_skb_core(skb2);
+			logi("netif_receive_skb_core copy return %d", ret);
+
+			return NF_ACCEPT;
+		}
+		break;
+	default:
+		logi("unknown type %d", type);
+		rcu_read_unlock();
+		return NF_ACCEPT;
 	}
-
-	skb->dev = rediret_dev;
-	skb->skb_iif = rediret_dev->ifindex;
-	skb->dev->stats.rx_packets += 1;
-	skb->dev->stats.rx_bytes += skb->len;
-	rcu_read_unlock();
-	ret = netif_receive_skb_core(skb);
-	logi("netif_receive_skb_core return %d", ret);
-
-	return NF_STOLEN;
 }
 
 
@@ -299,15 +375,18 @@ static netdev_tx_t ovnet_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct ovnet_dev_private *private = netdev_priv(dev);
 	struct net_device *org_dev = NULL;
 	struct iphdr *iph = NULL;
+	struct ipv6hdr *ipv6h = NULL;
 	int is_local_ip = 0;
 	u32 xmit_dst_ip = 0;
+	struct	in6_addr *v6_addr = NULL;
 
-	logi("ovnet_xmit start! %d", dev->ifindex);
-	if (skb->protocol != htons(ETH_P_IP)) {
-		logi("ovnet_xmit start! protocol not support %d", skb->protocol);
+	logi("ovnet_xmit start! ifindex %d, protocol 0x%x", dev->ifindex, ntohs(skb->protocol));
+	if (!(((skb->protocol == htons(ETH_P_IP)) && (ip_hdr(skb) != NULL))
+		|| ((skb->protocol == htons(ETH_P_IPV6)) && (ipv6_hdr(skb) != NULL))
+		|| (skb->protocol == htons(ETH_P_ARP)) || (skb->protocol == htons(ETH_P_RARP)))) {
+		logk("protocol invalid! 0x%x", ntohs(skb->protocol));
 		return NETDEV_TX_OK;
 	}
-	iph = ip_hdr(skb);
 
 	org_dev = private->bind_dev;
 	if (!org_dev) {
@@ -317,18 +396,35 @@ static netdev_tx_t ovnet_xmit(struct sk_buff *skb, struct net_device *dev)
 		return NETDEV_TX_OK;
 	}
 
-	is_local_ip = check_is_local_skb(skb, 1, private->peer_ip);
+	is_local_ip = check_is_local_skb(skb, 1, private, dev);
 	if (is_local_ip) {
 		logi("warn: local packet send to this device");
-		xmit_dst_ip = iph->daddr;
 	} else {
 		dev->stats.tx_packets += 1;
 		dev->stats.tx_bytes += skb->len;
-		xmit_dst_ip = private->peer_ip;
 	}
 
 	skb->dev = org_dev;
-	ret = neigh_xmit(NEIGH_ARP_TABLE, skb->dev, &xmit_dst_ip, skb);
+	if (skb->protocol == htons(ETH_P_IP)) {
+		iph = ip_hdr(skb);
+		if (is_local_ip) {
+			xmit_dst_ip = iph->daddr;
+		} else {
+			xmit_dst_ip = private->peer_ip;
+		}
+		ret = neigh_xmit(NEIGH_ARP_TABLE, skb->dev, &xmit_dst_ip, skb);
+	} else {
+		ipv6h = ipv6_hdr(skb);
+/** need to analyze
+		if (is_local_ip) {
+			v6_addr = &ipv6h->daddr;
+		} else {
+			v6_addr = &private->peer_ipv6;
+		}
+*/
+		v6_addr = &private->peer_ipv6;
+		ret = neigh_xmit(NEIGH_ND_TABLE, skb->dev, v6_addr, skb);
+	}
 	logi("ovnet_xmit skb %s return %d", skb->dev->name, ret);
 
 	return NETDEV_TX_OK;
@@ -357,7 +453,49 @@ static const struct net_device_ops ovnet_netdev_ops = {
 	.ndo_init = ovnet_init_dev,
 };
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0))
+static int ovnet_register_dev(struct net_device *dev, u32 ifindex)
+{
+	struct net *net = dev_net(dev);
+	struct ovnet_dev_private *private = netdev_priv(dev);
+	struct net_device *bind_dev = NULL;
+	int ret = 0;
 
+	logk("register_dev .. %u", ifindex);
+	if (ifindex == 0) {
+		return -1;
+	}
+
+	rcu_read_lock();
+	bind_dev = dev_get_by_index_rcu(net, ifindex);
+	if(!bind_dev) {
+		rcu_read_unlock();
+		logk("get dev failed!");
+		return -1;
+	}
+
+	logk("register_dev_ingress enter %s -> %s", dev->name, bind_dev->name);
+	private->nf_ops.dev = bind_dev;
+	private->nf_ops.hook = ovnet_dev_ingress_hook;
+	private->nf_ops.pf = NFPROTO_NETDEV;
+	private->nf_ops.hooknum = NF_NETDEV_INGRESS;
+	private->nf_ops.priority = NF_IP_PRI_FILTER + 1;
+	dev_hold(bind_dev);
+	rcu_read_unlock();
+
+	ret = nf_register_net_hook(&init_net, &private->nf_ops);
+	if(ret) {
+		dev_put(bind_dev);
+		logk("nf_register_net_hook failed! %d ", ret);
+	} else {
+		logk("nf_register_net_hook succ");
+		private->bind_dev = bind_dev;
+	}
+
+	return ret;
+}
+
+#else
 static int ovnet_register_dev(struct net_device *dev, u32 ifindex)
 {
 	struct net *net = dev_net(dev);
@@ -397,8 +535,30 @@ static int ovnet_register_dev(struct net_device *dev, u32 ifindex)
 
 	return ret;
 }
+#endif
 
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0))
+static int ovnet_unregister_dev(struct net_device *dev)
+{
+	struct ovnet_dev_private *private = netdev_priv(dev);
+
+	logk("ovnet_unregister_dev .... %s, bind if %u", dev->name, private->bind_if);
+	if (private->bind_dev) {
+		logk("unregister net hook! %s", private->bind_dev->name);
+		nf_unregister_net_hook(&init_net, &private->nf_ops);
+		rcu_read_lock();
+		memset(&private->nf_ops, 0, sizeof(private->nf_ops));
+		dev_put(private->bind_dev);
+		private->bind_dev = NULL;
+		rcu_read_unlock();
+	} else {
+		logk("bind_dev is null!");
+	}
+
+	return 0;
+}
+#else
 static int ovnet_unregister_dev(struct net_device *dev)
 {
 	struct ovnet_dev_private *private = netdev_priv(dev);
@@ -418,7 +578,7 @@ static int ovnet_unregister_dev(struct net_device *dev)
 
 	return 0;
 }
-
+#endif
 
 static void ovnet_dev_free(struct net_device *dev)
 {
@@ -480,6 +640,9 @@ static int ovnet_newlink(struct net *src_net, struct net_device *dev, struct nla
 	}
 	logk("register_netdevice succ!");
 
+	private->bind_if = 0;
+	private->peer_ip = 0;
+	memset(&private->peer_ipv6, 0, sizeof(struct in6_addr));
 	logk("ovnet_newlink check data %d", dev->ifindex);
 	if (data[IFLA_OVNET_BIND]) {
 		private->bind_if = nla_get_u32(data[IFLA_OVNET_BIND]);
@@ -494,9 +657,14 @@ static int ovnet_newlink(struct net *src_net, struct net_device *dev, struct nla
 		logk("update_ovnet_org_if return ret");
 	}
 
-	if (data[IFLA_OVNET_PEER]) {
-		private->peer_ip = nla_get_u32(data[IFLA_OVNET_PEER]);
-		logk("recv peer addr %u", private->peer_ip);
+	if (data[IFLA_OVNET_PEER_V4]) {
+		private->peer_ip = nla_get_u32(data[IFLA_OVNET_PEER_V4]);
+		logk("recv peer addr %x", private->peer_ip);
+	}
+
+	if (data[IFLA_OVNET_PEER_V6]) {
+		private->peer_ipv6 = nla_get_in6_addr(data[IFLA_OVNET_PEER_V6]);
+		logk("recv peer v6 addr %x", private->peer_ipv6.s6_addr[7]);
 	}
 
 	return 0;
@@ -527,9 +695,14 @@ static int ovnet_changelink(struct net_device *dev, struct nlattr *tb[], struct 
 		}
 	}
 
-	if (data[IFLA_OVNET_PEER]) {
-		private->peer_ip = nla_get_u32(data[IFLA_OVNET_PEER]);
-		logk("recv peer addr %u", private->peer_ip);
+	if (data[IFLA_OVNET_PEER_V4]) {
+		private->peer_ip = nla_get_u32(data[IFLA_OVNET_PEER_V4]);
+		logk("recv peer addr %x", private->peer_ip);
+	}
+
+	if (data[IFLA_OVNET_PEER_V6]) {
+		private->peer_ipv6 = nla_get_in6_addr(data[IFLA_OVNET_PEER_V6]);
+		logk("recv peer v6 addr %x,%x", private->peer_ipv6.s6_addr[14], private->peer_ipv6.s6_addr[15]);
 	}
 
 	return 0;
@@ -549,7 +722,9 @@ static void ovnet_dellink(struct net_device *dev, struct list_head *head)
 
 static size_t ovnet_get_size(const struct net_device *dev)
 {
-	return nla_total_size(sizeof(u32)) + nla_total_size(sizeof(u32));
+	return nla_total_size(sizeof(u32))
+		+ nla_total_size(sizeof(u32))
+		+ nla_total_size(sizeof(struct in6_addr));
 }
 
 static int ovnet_fillinfo(struct sk_buff *skb, const struct net_device *dev)
@@ -559,7 +734,10 @@ static int ovnet_fillinfo(struct sk_buff *skb, const struct net_device *dev)
 	if (nla_put_u32(skb, IFLA_OVNET_BIND, private->bind_if)) {
 		goto nla_put_failure;
 	}
-	if (nla_put_u32(skb, IFLA_OVNET_PEER, private->peer_ip)) {
+	if (nla_put_u32(skb, IFLA_OVNET_PEER_V4, private->peer_ip)) {
+		goto nla_put_failure;
+	}
+	if (nla_put_in6_addr(skb, IFLA_OVNET_PEER_V6, &private->peer_ipv6)) {
 		goto nla_put_failure;
 	}
 	return 0;
@@ -570,7 +748,8 @@ nla_put_failure:
 
 static const struct nla_policy ovnet_nl_policy[IFLA_OVNET_MAX + 1] = {
 	[IFLA_OVNET_BIND] = { .type = NLA_U32 },
-	[IFLA_OVNET_PEER] = { .type = NLA_U32 },
+	[IFLA_OVNET_PEER_V4] = { .type = NLA_U32 },
+	[IFLA_OVNET_PEER_V6] = { .type = NLA_BINARY, .len = sizeof(struct in6_addr) },
 };
 
 
@@ -697,6 +876,7 @@ static void __exit ovnet_dev_fini(void)
 
 module_init(ovnet_dev_init);
 module_exit(ovnet_dev_fini);
+#endif
 MODULE_LICENSE("GPL");
 MODULE_ALIAS_RTNL_LINK("ovnet");
 

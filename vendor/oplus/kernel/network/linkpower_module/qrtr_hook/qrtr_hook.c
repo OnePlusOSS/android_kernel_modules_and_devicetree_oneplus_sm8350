@@ -78,12 +78,12 @@ static int handler_qrtr_print_wakeup_reason(struct kprobe *kp, struct pt_regs *r
 			}
 		}
 		if (array_overflow) {
-			printk("[qrtr_hook] service_id=0x%x msg_id=0x%x, array overflow!", service_id, msg_id);
+			printk("[qrtr_hook] service_id=0x%llx msg_id=0x%llx, array overflow!", service_id, msg_id);
 		} else {
-			printk("[qrtr_hook] service_id=0x%x msg_id=0x%x", service_id, msg_id);
+			printk("[qrtr_hook] service_id=0x%llx msg_id=0x%llx", service_id, msg_id);
 		}
 	} else {
-		printk("[qrtr_hook] failed to hook qrtr wakeup, invalid format [0x%x 0x%x]",
+		printk("[qrtr_hook] failed to hook qrtr wakeup, invalid format [0x%llx 0x%llx]",
 		       regs->regs[QRTR_PRINT_SERVICE_ID_REGS_INDEX], regs->regs[QRTR_PRINT_MSG_ID_REGS_INDEX]);
 	}
 

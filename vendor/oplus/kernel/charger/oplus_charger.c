@@ -3611,6 +3611,7 @@ static void oplus_chg_track_chg_cycle_info_trigger_work(struct work_struct *work
 	mutex_unlock(&chip->chg_cycle_info_lock);
 }
 
+
 int oplus_chg_track_upload_mmi_chg_info(struct oplus_chg_chip *chip, int mmi_chg)
 {
 	int index = 0;
@@ -3684,7 +3685,7 @@ static int oplus_chg_track_upload_chg_cycle_info(struct oplus_chg_chip *chip, ch
 
 	chip->chg_cycle_info_trigger = kzalloc(sizeof(oplus_chg_track_trigger), GFP_KERNEL);
 	if (!chip->chg_cycle_info_trigger) {
-		pr_err("chg_cycle_info_trigger memery alloc fail\n");
+		chg_err("chg_cycle_info_trigger memery alloc fail\n");
 		mutex_unlock(&chip->chg_cycle_info_lock);
 		return -ENOMEM;
 	}
@@ -3697,6 +3698,66 @@ static int oplus_chg_track_upload_chg_cycle_info(struct oplus_chg_chip *chip, ch
 					  OPLUS_CHG_TRACK_CURX_INFO_LEN - index);
 
 	schedule_delayed_work(&chip->chg_cycle_info_trigger_work, 0);
+	chg_info("success\n");
+	return 0;
+}
+
+static void oplus_chg_track_dec_vol_info_trigger_work(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct oplus_chg_chip *chip = container_of(dwork, struct oplus_chg_chip, dec_vol_info_trigger_work);
+
+	if (chip->dec_vol_info_trigger) {
+		oplus_chg_track_upload_trigger_data(*(chip->dec_vol_info_trigger));
+		kfree(chip->dec_vol_info_trigger);
+		chip->dec_vol_info_trigger = NULL;
+	}
+	mutex_unlock(&chip->dec_vol_info_lock);
+}
+
+#define TRACK_DEC_VOL_UPLOAD_COUNT_MAX 3
+#define TRACK_LOCAL_T_NS_TO_S_THD 1000000000
+#define TRACK_DEC_VOL_UPLOAD_PERIOD (24 * 3600)
+static int oplus_chg_track_upload_dec_vol_info(struct oplus_chg_chip *chip)
+{
+	int curr_time = 0;
+	int index = 0;
+	static int upload_count = 0;
+	static int pre_upload_time = 0;
+	if (!chip || !chip->dec_cv.dec_track)
+		return -EINVAL;
+
+	chip->dec_cv.dec_track = false;
+	curr_time = local_clock() / TRACK_LOCAL_T_NS_TO_S_THD;
+
+	if (curr_time - pre_upload_time > TRACK_DEC_VOL_UPLOAD_PERIOD)
+		upload_count = 0;
+
+	if (upload_count >= TRACK_DEC_VOL_UPLOAD_COUNT_MAX)
+		return -ENODEV;
+
+	pre_upload_time = local_clock() / TRACK_LOCAL_T_NS_TO_S_THD;
+	upload_count++;
+
+	mutex_lock(&chip->dec_vol_info_lock);
+	if (chip->dec_vol_info_trigger)
+		kfree(chip->dec_vol_info_trigger);
+
+	chip->dec_vol_info_trigger = kzalloc(sizeof(oplus_chg_track_trigger), GFP_KERNEL);
+	if (!chip->dec_vol_info_trigger) {
+		pr_err("dec_vol_info_trigger memery alloc fail\n");
+		mutex_unlock(&chip->dec_vol_info_lock);
+		return -ENOMEM;
+	}
+
+	chip->dec_vol_info_trigger->type_reason = TRACK_NOTIFY_TYPE_GENERAL_RECORD;
+	chip->dec_vol_info_trigger->flag_reason = TRACK_NOTIFY_FLAG_DEC_VOL_INFO;
+	index += snprintf(&(chip->dec_vol_info_trigger->crux_info[index]), OPLUS_CHG_TRACK_CURX_INFO_LEN - index,
+			 "$$spec_dec_cv_mv@@%d$$dec_delta@@%d$$dec_vol@@%d$$cc@@%d$$fcc@@%d$$soh@@%d$$rm@@%d",
+			 chip->dec_cv.spec_dec_cv_mv, chip->dec_cv.dec_delta, chip->dec_cv.dec_vol, chip->batt_cc,
+			 chip->batt_fcc, chip->batt_soh, chip->batt_rm);
+
+	schedule_delayed_work(&chip->dec_vol_info_trigger_work, 0);
 	chg_info("success\n");
 	return 0;
 }
@@ -3755,6 +3816,7 @@ static int oplus_chg_track_init(struct oplus_chg_chip *chip)
 	mutex_init(&chip->mmi_chg_info_lock);
 	mutex_init(&chip->slow_chg_info_lock);
 	mutex_init(&chip->chg_cycle_info_lock);
+	mutex_init(&chip->dec_vol_info_lock);
 
 	INIT_DELAYED_WORK(&chip->uisoc_keep_1_t_load_trigger_work, oplus_chg_track_uisoc_keep_1_t_load_trigger_work);
 	INIT_DELAYED_WORK(&chip->vbatt_too_low_load_trigger_work, oplus_chg_track_vbatt_too_low_load_trigger_work);
@@ -3767,6 +3829,7 @@ static int oplus_chg_track_init(struct oplus_chg_chip *chip)
 	INIT_DELAYED_WORK(&chip->mmi_chg_info_trigger_work, oplus_chg_track_mmi_chg_info_trigger_work);
 	INIT_DELAYED_WORK(&chip->slow_chg_info_trigger_work, oplus_chg_track_slow_chg_info_trigger_work);
 	INIT_DELAYED_WORK(&chip->chg_cycle_info_trigger_work, oplus_chg_track_chg_cycle_info_trigger_work);
+	INIT_DELAYED_WORK(&chip->dec_vol_info_trigger_work, oplus_chg_track_dec_vol_info_trigger_work);
 
 	rc = oplus_chg_track_debugfs_init(chip);
 	if (rc < 0) {
@@ -5900,10 +5963,7 @@ int oplus_chg_parse_charger_dt(struct oplus_chg_chip *chip)
 	charger_xlog_printk(CHG_LOG_CRTI, "qcom,suport_pd_9v2a = %d\n", chip->suport_pd_9v2a);
 
 	oplus_chg_smooth_switch_v2_parse_dt(chip);
-	rc = of_property_read_u32(node, "oplus,aging_ffc_version", &chip->aging_ffc_version);
-	if (rc) {
-		chip->aging_ffc_version = AGING_FFC_NOT_SUPPORT;
-	}
+	chip->aging_ffc_version = AGING_FFC_NOT_SUPPORT;
 
 	chip->support_wd0 = of_property_read_bool(node, "qcom,ccdetect_by_wd0");
 	chip->support_usbtemp_protect_v2 = of_property_read_bool(node, "qcom,support_usbtemp_protect_v2");
@@ -5926,6 +5986,9 @@ int oplus_chg_parse_charger_dt(struct oplus_chg_chip *chip)
 
 	chip->boot_reset_adapter = of_property_read_bool(node, "oplus,boot_reset_adapter");
 	chip->quick_mode_gain_support = of_property_read_bool(node, "oplus,quick_mode_gain_support");
+	rc = of_property_read_u32(node, "oplus_spec,dec-vol-fv-mv", &chip->dec_cv.spec_dec_cv_mv);
+	if (rc)
+		chip->dec_cv.spec_dec_cv_mv = 0;
 	return 0;
 }
 EXPORT_SYMBOL(oplus_chg_parse_charger_dt);
@@ -6322,6 +6385,8 @@ static int oplus_chg_get_float_voltage(struct oplus_chg_chip *chip)
 	if (oplus_short_c_batt_is_prohibit_chg(chip) && flv > chip->limits.short_c_bat_vfloat_mv) {
 		flv = chip->limits.short_c_bat_vfloat_mv;
 	}
+	if (chip->dec_cv.spec_dec_cv_mv)
+		flv -= chip->dec_cv.dec_vol;
 	return flv;
 }
 
@@ -6395,7 +6460,7 @@ static void oplus_chg_vfloat_over_check(struct oplus_chg_chip *chip)
 	if (!chip->mmi_chg) {
 		return;
 	}
-	if (chip->charging_state == CHARGING_STATUS_FULL) {
+	if (chip->charging_state == CHARGING_STATUS_FULL || chip->batt_full) {
 		return;
 	}
 	if (oplus_vooc_get_allow_reading() == false) {
@@ -6422,6 +6487,9 @@ static void oplus_chg_vfloat_over_check(struct oplus_chg_chip *chip)
 		bat_vol = chip->sub_batt_volt > chip->batt_volt ? chip->sub_batt_volt : chip->batt_volt;
 	else
 		bat_vol = chip->batt_volt;
+
+	if (chip->dec_cv.spec_dec_cv_mv)
+		bat_vol += chip->dec_cv.dec_vol;
 
 	if (chip->limits.sw_vfloat_over_protect_enable) {
 		if ((bat_vol >= chip->limits.cold_vfloat_over_sw_limit &&
@@ -8569,6 +8637,46 @@ static void oplus_chg_switch(struct oplus_chg_chip *chip)
 	oplus_chg_chargerid_switch_check(chip);
 }
 
+void oplus_charger_set_dec_delta(int val)
+{
+	if (!g_charger_chip) {
+		chg_err("g_charger_chip null\n");
+		return;
+	}
+#define DEC_VOL_DELTA_MAX 100
+
+	chg_info(" [%d]\n", val);
+	if (val > DEC_VOL_DELTA_MAX || val < -DEC_VOL_DELTA_MAX)
+		return;
+
+	g_charger_chip->dec_cv.dec_track = true;
+	g_charger_chip->dec_cv.dec_delta = val;
+}
+
+int oplus_charger_get_dec_delta(void)
+{
+	if (!g_charger_chip) {
+		chg_err("g_charger_chip null\n");
+		return 0;
+	}
+	return g_charger_chip->dec_cv.dec_delta;
+}
+
+static void oplus_charger_dec_cv_check(struct oplus_chg_chip *chip)
+{
+	int vol_fv = 0;
+#define DEC_VOL_CV_MAX 150
+
+	if (!chip->dec_cv.spec_dec_cv_mv)
+		return;
+
+	vol_fv = max((chip->dec_cv.spec_dec_cv_mv - chip->dec_cv.dec_delta), 0);
+	vol_fv = min(vol_fv, DEC_VOL_CV_MAX);
+	chg_info("[%d, %d, %d]\n", chip->dec_cv.spec_dec_cv_mv, chip->dec_cv.dec_delta, vol_fv);
+	chip->dec_cv.dec_vol = vol_fv;
+	oplus_chg_track_upload_dec_vol_info(chip);
+}
+
 #define UNKNOW_TYPE_DETECT_RETRY_TIME 2
 void oplus_charger_detect_check(struct oplus_chg_chip *chip)
 {
@@ -8591,6 +8699,7 @@ void oplus_charger_detect_check(struct oplus_chg_chip *chip)
 			noplug_batt_volt_max = chip->batt_volt_max;
 			noplug_batt_volt_min = chip->batt_volt_min;
 			oplus_chg_variables_reset(chip, true);
+			oplus_charger_dec_cv_check(chip);
 			if (oplus_switching_support_parallel_chg() ==  PARALLEL_SWITCH_IC)
 				parallel_chg_check_balance_bat_status();
 #ifdef CONFIG_OPLUS_CHARGER_MTK
@@ -10606,6 +10715,8 @@ static int oplus_chg_check_sw_full(struct oplus_chg_chip *chip)
 	if (oplus_short_c_batt_is_prohibit_chg(chip)) {
 		vbatt_full_vol_sw = chip->limits.short_c_bat_vfloat_sw_limit;
 	}
+	if (chip->dec_cv.spec_dec_cv_mv)
+		vbatt_full_vol_sw -= chip->dec_cv.dec_vol;
 	/* use SW Vfloat to check */
 	if (chip->batt_volt > vbatt_full_vol_sw) {
 		if (chip->icharging < 0 && (chip->icharging * -1) <= chip->limits.iterm_ma) {
@@ -10725,6 +10836,8 @@ static int oplus_chg_check_sw_sub_batt_full(struct oplus_chg_chip *chip)
 		chip->sub_batt_volt, chip->batt_volt_max, chip->batt_volt_min, chip->sub_batt_icharging,
 		sub_vbatt_full_vol_sw, chip->limits.iterm_ma);
 #endif
+	if (chip->dec_cv.spec_dec_cv_mv)
+		sub_vbatt_full_vol_sw -= chip->dec_cv.dec_vol;
 	/* use SW Vfloat to check */
 	if (chip->sub_batt_volt > sub_vbatt_full_vol_sw) {
 		if (chip->sub_batt_icharging < 0 && (chip->sub_batt_icharging * -1) <= chip->limits.sub_iterm_ma) {
@@ -10853,7 +10966,8 @@ static bool oplus_chg_check_sub_vbat_ffc_end(struct oplus_chg_chip *chip)
 	} else {
 		return false;
 	}
-
+	if (chip->dec_cv.spec_dec_cv_mv)
+		ffc_vfloat_sw_limit -= chip->dec_cv.dec_vol;
 	if (chip->sub_batt_volt > ffc_vfloat_sw_limit) {
 		chg_err("sub_vbat_ffc_end !!! sub_batt_volt:%d, ffc_vfloat_sw_limit:%d, fastchg_ffc_status:%d",
 			chip->sub_batt_volt, ffc_vfloat_sw_limit, chip->ffc_temp_status);
@@ -10919,7 +11033,13 @@ static bool oplus_chg_check_ffc_status(struct oplus_chg_chip *chip)
 			sub_ibat_ffc_end_status = oplus_chg_check_sub_ibat_ffc_end(chip);
 		}
 		if (chip->fastchg_ffc_status == 1) {
-			if (chip->batt_volt >= chip->limits.ffc1_normal_vfloat_sw_limit || sub_vbat_ffc_end_status) {
+			if (chip->ffc_temp_status == FFC_TEMP_STATUS__WARM)
+				ffc_vfloat_sw_limit = chip->limits.ffc1_warm_vfloat_sw_limit;
+			else
+				ffc_vfloat_sw_limit = chip->limits.ffc1_normal_vfloat_sw_limit;
+			if (chip->dec_cv.spec_dec_cv_mv)
+				ffc_vfloat_sw_limit -= chip->dec_cv.dec_vol;
+			if ((chip->batt_volt >= ffc_vfloat_sw_limit) || sub_vbat_ffc_end_status) {
 				vffc1_counts++;
 				if (vffc1_counts >= FFC_VOLT_COUNTS) {
 					oplus_chg_turn_on_ffc2(chip);
@@ -10965,6 +11085,8 @@ static bool oplus_chg_check_ffc_status(struct oplus_chg_chip *chip)
 				ffc_vfloat_sw_limit = chip->limits.ffc2_warm_vfloat_sw_limit;
 			else
 				ffc_vfloat_sw_limit = chip->limits.ffc2_normal_vfloat_sw_limit;
+			if (chip->dec_cv.spec_dec_cv_mv)
+				ffc_vfloat_sw_limit -= chip->dec_cv.dec_vol;
 			if (chip->batt_volt >= ffc_vfloat_sw_limit || sub_vbat_ffc_end_status) {
 				vffc2_counts++;
 				if (vffc2_counts >= FFC_VOLT_COUNTS) {
